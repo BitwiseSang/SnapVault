@@ -3,8 +3,8 @@ import { render, screen } from '@testing-library/react'
 import App from './App'
 
 describe('App component', () => {
-  it('renders app title', () => {
+  it('renders loading state initially while checking database', () => {
     render(<App />)
-    expect(screen.getByText('SnapVault')).toBeDefined()
+    expect(screen.getByText('Checking local archive...')).toBeDefined()
   })
 })

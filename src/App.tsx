@@ -1,20 +1,50 @@
-import { ImportDebug } from './components/ImportDebug'
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { AppProvider, useApp } from './app/AppContext'
+import { MainLayout } from './app/MainLayout'
+import { ImportScreen } from './views/import/ImportScreen'
+import { ChatsView } from './views/chats/ChatsView'
+import { MemoriesView } from './views/memories/MemoriesView'
+import { StatsView } from './views/stats/StatsView'
+import { Spinner } from './components/Spinner'
+
+function RootRedirect() {
+  const { isReady, isLoadingMeta } = useApp()
+
+  if (isLoadingMeta) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-bg text-text-primary gap-4">
+        <Spinner size="lg" />
+        <span className="text-xs text-text-secondary font-medium">Checking local archive...</span>
+      </div>
+    )
+  }
+
+  if (!isReady) {
+    return <Navigate to="/import" replace />
+  }
+
+  return <Navigate to="/chats" replace />
+}
 
 export function App() {
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-bg text-text-primary gap-8">
-      <div className="max-w-md w-full text-center space-y-3">
-        <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-accent text-accent-fg font-black text-2xl shadow-sm">
-          SV
-        </div>
-        <h1 className="text-3xl font-bold tracking-tight">SnapVault</h1>
-        <p className="text-sm text-text-secondary">
-          Private, local-first browser for your Snapchat data export.
-        </p>
-      </div>
+    <AppProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<RootRedirect />} />
+          <Route path="/import" element={<ImportScreen />} />
 
-      {import.meta.env.DEV && <ImportDebug />}
-    </div>
+          <Route element={<MainLayout />}>
+            <Route path="/chats" element={<ChatsView />} />
+            <Route path="/chats/:contact" element={<ChatsView />} />
+            <Route path="/memories" element={<MemoriesView />} />
+            <Route path="/stats" element={<StatsView />} />
+          </Route>
+
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </BrowserRouter>
+    </AppProvider>
   )
 }
 
