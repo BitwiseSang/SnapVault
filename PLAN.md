@@ -1,0 +1,465 @@
+# SnapVault v1 — Project Plan
+
+> From empty repo to a fully featured, beautiful Snapchat export browser.  
+> Package manager: **pnpm** throughout. Replace every `npm` reference in docs/scripts accordingly.
+
+---
+
+## Overview
+
+```
+Phase 0 → Scaffold & tooling
+Phase 1 → Data foundation (ingest + parsers + DB)
+Phase 2 → Core UI shell + design system
+Phase 3 → Chat viewer
+Phase 4 → Memories gallery
+Phase 5 → Stats view
+Phase 6 → Global search & filters
+Phase 7 → Polish, empty states & accessibility
+```
+
+Each phase builds on the last and is independently committable. Phases 3–6 can be parallelized once Phase 2 is done if multiple agents are working concurrently.
+
+---
+
+## Phase 0 — Scaffold & tooling
+
+**Goal:** A running dev server with linting, formatting, and type-checking wired up. Zero feature code.
+
+### Tasks
+
+- [ ] **0.1** Scaffold with Vite
+  ```bash
+  pnpm create vite@latest . -- --template react-ts
+  ```
+  Immediately replace the boilerplate content in `src/` with the directory structure from `ARCHITECTURE.md`. Delete placeholder files (`App.css`, `assets/react.svg`, etc.).
+
+- [ ] **0.2** Install core dependencies
+  ```bash
+  pnpm add dexie minisearch @tanstack/react-virtual react-router-dom
+  pnpm add -D tailwindcss @tailwindcss/vite autoprefixer typescript eslint prettier eslint-plugin-react-hooks @typescript-eslint/eslint-plugin @typescript-eslint/parser
+  ```
+
+- [ ] **0.3** Configure Tailwind CSS v4
+  Use the Vite plugin approach (`@tailwindcss/vite`). Set up a custom design token palette in CSS variables (see Design System section below). Configure `darkMode: 'class'`.
+
+- [ ] **0.4** Configure TypeScript strict mode
+  ```json
+  // tsconfig.json
+  { "compilerOptions": { "strict": true, "noUncheckedIndexedAccess": true } }
+  ```
+
+- [ ] **0.5** ESLint + Prettier
+  Single flat config (`eslint.config.js`). Enforce no `any`, import ordering, React hooks rules. Prettier for formatting (tabs vs spaces: spaces, 2-width).
+
+- [ ] **0.6** Update `README.md` setup instructions
+  Replace `npm install` / `npm run dev` with `pnpm install` / `pnpm dev`.
+
+- [ ] **0.7** Create `pnpm-workspace.yaml` (single-package, but sets precedent for future monorepo if needed).
+
+- [ ] **0.8** Pin Node version in `.nvmrc` / `.node-version`.
+
+- [ ] **0.9** Commit: `chore: scaffold Vite + React + TS + Tailwind + tooling`
+
+---
+
+## Phase 1 — Data foundation
+
+**Goal:** The full ingest → parse → store pipeline works end-to-end, verified against `sample_data/`. No UI yet beyond a dev-only debug panel.
+
+### 1.1 — Shared models (`src/models/`)
+
+- [ ] Define `AppEvent`, `MessageEvent`, `SnapEvent`, `CallEvent`, `MemoryEvent` from `ARCHITECTURE.md` in `src/models/events.ts`.
+- [ ] Define `IngestSource` interface and `IngestedFile` type in `src/models/ingest.ts`.
+- [ ] No `any`. Use `unknown` for raw JSON shapes — parsers will narrow them.
+
+### 1.2 — Ingest layer (`src/ingest/`)
+
+- [ ] **`FolderIngestSource`** — implements `IngestSource` using the **File System Access API** (`showDirectoryPicker`) as the primary strategy, with a **drag-and-drop `webkitGetAsEntry` fallback** for browsers that don't support FSA.
+  - `listFiles()` returns a flat array of `{ path: string, file: File }` for all files under the dropped directory.
+  - `readFile(path)` returns the `Blob` for a given path.
+  - Must recursively enumerate `json/`, `memories/` subdirectories.
+- [ ] Write unit tests for `FolderIngestSource` using a mock file tree.
+
+### 1.3 — Parsers (`src/parsers/`)
+
+One file per source JSON. Each parser takes raw `unknown` JSON and returns normalized `AppEvent[]`. All parsers must:
+- Type-narrow with runtime checks (not `as` casts) — throw a descriptive error if the shape is wrong.
+- Degrade gracefully on individual malformed entries (skip + log, don't throw).
+- Timestamp conversion: `"YYYY-MM-DD HH:MM:SS UTC"` → ISO 8601 string.
+
+- [ ] **`src/parsers/chat.ts`** — `parseChat(raw: unknown): MessageEvent[]`
+  - Iterates contact keys, iterates messages per contact.
+  - Derives `direction` from `IsSender`.
+  - Generates a stable `id` from `Created(microseconds)` + contact + `From`.
+
+- [ ] **`src/parsers/snap.ts`** — `parseSnaps(raw: unknown): SnapEvent[]`
+  - Same keyed-by-contact structure. Reduced field set — no `Content`, `IsSaved`, `Media IDs`.
+
+- [ ] **`src/parsers/call.ts`** — `parseCalls(raw: unknown): CallEvent[]`
+  - Iterates all four categories (`Outgoing Calls`, `Incoming Calls`, `Completed Calls`, `Chat Sessions`).
+  - Handles empty arrays gracefully.
+  - No `contact` field on the resulting event.
+
+- [ ] **`src/parsers/memory.ts`** — `parseMemories(raw: unknown, memoryFiles: IngestedFile[]): MemoryEvent[]`
+  - **Join strategy (decided): files-drive, JSON is metadata-only.** Enumerate `memories/` files as the primary source of truth. For each `-main.*` file, attempt to find a matching JSON entry by `YYYY-MM-DD` date prefix + media type (`"Video"` ↔ `.mp4`, `"Image"` ↔ `.jpg`) + within-day ordinal index. If a file has no matching JSON entry, include it in results with no `location` metadata. If a JSON entry has no matching file, skip it and log a warning. Never fail the import due to mismatches.
+  - Pairs each `-main.*` file with its `-overlay.png` sibling (same UUID prefix) when present.
+  - Returns `MemoryEvent[]` with `mediaFile`, optional `overlayFile`, `mediaKind`, `location`.
+
+- [ ] **Parser unit tests** for all four parsers — happy path, missing fields, null content, mismatched memory counts.
+
+### 1.4 — Database layer (`src/db/`)
+
+- [ ] **`src/db/schema.ts`** — Dexie schema v1:
+  ```ts
+  // events table: ++id, type, timestamp, contact
+  // meta table: key, value (for import metadata)
+  ```
+- [ ] **`src/db/db.ts`** — singleton Dexie instance. Export typed hooks: `useEvents()`, `useMeta()`.
+- [ ] **`src/db/import.ts`** — `runImport(source: IngestSource): Promise<ImportResult>`
+  - Reads all four JSON files via `source.readFile(...)`.
+  - Runs all four parsers.
+  - Bulk-inserts into Dexie in a single transaction per table.
+  - Writes metadata (import date, counts per type).
+  - Returns `{ messageCount, snapCount, callCount, memoryCount, warnings: string[] }`.
+
+### 1.5 — Search index (`src/search/`)
+
+- [ ] **`src/search/index.ts`** — builds a MiniSearch index at startup from all `MessageEvent` records where `content !== null`, plus all contact names.
+  - Fields: `contact`, `content` (weighted higher), `mediaType`.
+  - Store reference: index lives in module-level memory (not IndexedDB), rebuilt on each app load from Dexie data.
+- [ ] Export a `useSearch(query: string)` hook that returns debounced results.
+
+### 1.6 — Dev-only import debug panel
+
+- [ ] A minimal `<ImportDebug />` component (visible only in `import.meta.env.DEV`) that:
+  - Shows a folder picker button.
+  - Runs `runImport()`.
+  - Displays counts and any warnings.
+  - Useful for verifying the pipeline before any real UI is built.
+
+- [ ] Commit: `feat(data): ingest pipeline, parsers, Dexie schema, search index`
+
+---
+
+## Phase 2 — UI shell & design system
+
+**Goal:** App routing, layout, navigation, and a component library that all subsequent views will use. First thing that looks like a real product.
+
+### 2.1 — Design system
+
+SnapVault should feel like a **modern, premium personal-data app** — clean, dark-by-default, with Snapchat's energy but none of its visual clutter. Reference: Linear, Raycast, Apple Photos (dark mode).
+
+**Color palette (CSS custom properties):**
+
+| Token | Light | Dark | Purpose |
+|---|---|---|---|
+| `--color-bg` | `#f9f9f9` | `#0f0f0f` | Page background |
+| `--color-surface` | `#ffffff` | `#1a1a1a` | Cards, panels |
+| `--color-surface-raised` | `#f0f0f0` | `#252525` | Hover states, sidebar items |
+| `--color-border` | `#e4e4e7` | `#2e2e2e` | Dividers |
+| `--color-text-primary` | `#09090b` | `#fafafa` | Body text |
+| `--color-text-secondary` | `#71717a` | `#a1a1aa` | Timestamps, metadata |
+| `--color-accent` | `#FFFC00` | `#FFFC00` | Snapchat yellow — used sparingly as a key accent |
+| `--color-accent-fg` | `#09090b` | `#09090b` | Text on accent backgrounds |
+| `--color-sent` | `#FFFC00` | `#FFFC00` | Sent message bubble |
+| `--color-received` | `#e4e4e7` | `#2e2e2e` | Received message bubble |
+
+**Typography:**
+- Font: **Inter** (variable, via `@fontsource/inter`) as the system font stack fallback.
+- Scale: `text-xs` (11px) → `text-sm` (13px) → `text-base` (15px) → `text-lg` (17px) → `text-2xl/3xl` for headings.
+- Letter-spacing: `-0.02em` on headings; normal on body.
+
+**Motion:**
+- Reduced-motion aware (`prefers-reduced-motion`). When motion is OK: `transition-all duration-150 ease-out` on interactive elements; `animate-fade-in` on view transitions.
+- No gratuitous animation — every motion must serve a purpose (direction, state change, hierarchy).
+
+**Spacing:** 4px base unit. Tailwind's default scale is fine.
+
+**Radius:** `rounded-xl` (12px) for cards/panels; `rounded-full` for pills/avatars; `rounded-lg` for buttons.
+
+**Shadows:** Subtle. `shadow-sm` in light mode; no shadows in dark mode (use border instead).
+
+### 2.2 — Shared component library (`src/components/`)
+
+- [ ] **`Avatar`** — generates a deterministic color + initials avatar from a username string. No external images.
+- [ ] **`Badge`** — pill label for media types, contact counts.
+- [ ] **`Button`** — `variant: primary | ghost | destructive`, sizes `sm | md | lg`.
+- [ ] **`IconButton`** — square button with a single icon child.
+- [ ] **`Spinner`** / **`ProgressBar`** — for ingest loading states.
+- [ ] **`EmptyState`** — centered icon + heading + body + optional CTA. Used everywhere data is absent.
+- [ ] **`Tooltip`** — accessible, keyboard-triggerable, follows the cursor.
+- [ ] **`Dialog`** / **`Sheet`** — accessible modal and slide-in panel (for lightbox, settings).
+- [ ] **`VirtualList`** — thin wrapper around `@tanstack/react-virtual` for vertical lists.
+- [ ] **`VirtualGrid`** — thin wrapper for masonry/grid layout (memories gallery).
+
+### 2.3 — App shell (`src/app/`)
+
+- [ ] **Routing** — `react-router-dom` v6. Routes: `/` (import screen), `/chats`, `/chats/:contact`, `/memories`, `/stats`, `/search`.
+- [ ] **`<AppProvider>`** — context that holds: Dexie db instance, import status (`idle | importing | ready | error`), MiniSearch index reference.
+- [ ] **`<ImportScreen>`** — shown when no data is indexed yet.
+  - Large, centered drop zone with dashed border and a folder icon.
+  - "Drop your Snapchat export folder here" + a secondary "or click to browse" button (triggers FSA `showDirectoryPicker`).
+  - On drop: animated progress bar with "Parsing X of Y files…" live count.
+  - On success: auto-navigates to `/chats`.
+  - On error: inline error with retry button and specific failure message.
+- [ ] **`<MainLayout>`** — persistent after first import.
+  - Left sidebar (240px, collapsible to icon-rail on narrow viewports).
+  - Main content area (flex-1, scrollable).
+  - Sidebar nav items: Chats, Memories, Stats, + Search trigger at bottom.
+  - At top of sidebar: small "SnapVault" wordmark + a re-import button (icon only, with tooltip "Re-import data").
+- [ ] **Dark/light mode toggle** — stored in `localStorage`, respects `prefers-color-scheme` as initial default.
+
+- [ ] Commit: `feat(ui): app shell, design system, shared components`
+
+---
+
+## Phase 3 — Chats view
+
+**Goal:** Browse per-contact conversations and a unified all-contacts timeline.
+
+### 3.1 — Contact list (`src/views/chats/ContactList.tsx`)
+
+- [ ] Sorted by most recent message by default; toggle to sort A→Z.
+- [ ] Shows: `<Avatar>` + display name (username) + last message timestamp + message count badge.
+- [ ] Virtualized with `<VirtualList>` — supports 346+ contacts without jank.
+- [ ] Inline search/filter: typing filters the list in real time (client-side, no round-trip).
+- [ ] Selected contact highlighted with accent-left-border.
+- [ ] **Empty state:** "No conversations found" with a search-clear CTA if filtering.
+
+### 3.2 — Conversation pane (`src/views/chats/ConversationPane.tsx`)
+
+- [ ] Two-panel layout: `ContactList` left, `ConversationPane` right (responsive: stacks on small viewports).
+- [ ] Header: avatar + username + message count + first/last message date range.
+- [ ] Message list, **newest at bottom**, virtualized with `<VirtualList>`.
+- [ ] **`<MessageBubble>`** — right-aligned (sent, yellow), left-aligned (received, neutral).
+  - Content: if `content` is non-null, show it. If null, show a ghosted label by media type (e.g. `📷 Photo`, `📍 Location`, `🎵 Note`, `🎉 Sticker`).
+  - Timestamp: shown on hover (absolute), grouped by day with a date separator pill.
+  - `IsSaved` indicator: a small bookmark icon on the bubble.
+  - Media type icon: subtle, in the top-right corner of the bubble.
+- [ ] **Group chat support:** when `Conversation Title` is non-null, show the group name in the header instead of a username, and show the sender name above each received bubble.
+- [ ] **Unified timeline tab:** an "All conversations" entry at the top of the contact list that merges all messages across contacts into a single time-sorted stream.
+- [ ] Sort controls: newest-first / oldest-first toggle.
+- [ ] Filter controls: filter by media type (multiselect pill bar).
+
+- [ ] Commit: `feat(views): chats view — contact list + conversation pane`
+
+---
+
+## Phase 4 — Memories gallery
+
+**Goal:** A beautiful, fast, browsable grid of all saved photos and videos.
+
+> Join strategy: **files-drive, JSON metadata-only** (decided). See memory parser notes in Phase 1.
+
+### 4.1 — Media grid (`src/views/memories/MediaGrid.tsx`)
+
+- [ ] **Masonry layout** — JS-calculated positions (variable-height cards arranged in columns). Compute column assignments and `top`/`left` positions after measuring each card's natural image aspect ratio; re-compute on window resize via a `ResizeObserver`. Default 3 columns; responsive breakpoints: 1 col (mobile), 2 col (tablet), 3–4 col (desktop). Virtualized: only render cards whose calculated bounding box intersects the scroll viewport.
+- [ ] **`<MemoryCard>`** — thumbnail (lazy-loaded `<img>`/`<video poster>`), overlay compositing (if `-overlay.png` is present, render it on top of the main media using CSS absolute positioning), date chip at bottom.
+- [ ] Click a card → opens `<MediaLightbox>`.
+- [ ] **`<MediaLightbox>`** — full-screen modal.
+  - Image: full-res render with overlay composited.
+  - Video: `<video controls autoPlay>` with overlay.
+  - Left/right keyboard navigation (←/→ arrows) between media in the current filtered set.
+  - Escape to close.
+  - Bottom info strip: date, location (if non-zero lat/lng), media type.
+
+### 4.2 — Filter bar
+
+- [ ] Filter by: media type (Photo / Video), date range (year picker → month picker).
+- [ ] Sort: newest-first / oldest-first.
+- [ ] "X memories" count updates live as filters change.
+
+### 4.3 — Performance safeguards
+
+- [ ] Thumbnails lazy-loaded via `loading="lazy"` + `IntersectionObserver`.
+- [ ] Videos: show `<video>` element only when card enters viewport; use `poster` attribute (first frame) until then.
+- [ ] Never render all 1,400+ cards at once.
+
+- [ ] Commit: `feat(views): memories gallery — masonry grid + lightbox`
+
+---
+
+## Phase 5 — Stats view
+
+**Goal:** Visual summary of activity. No per-contact call data (export limitation), but rich per-contact message and snap stats.
+
+### Layout
+
+Two-column on wide viewports, single-column on mobile. Cards with subtle borders, section headings.
+
+### 5.1 — Top-level stats cards
+
+- [ ] Total messages sent / received (all time).
+- [ ] Total snaps sent / received.
+- [ ] Total memories saved.
+- [ ] Total call time (seconds → formatted as `Xh Ym`).
+- [ ] Active since (earliest event date).
+
+### 5.2 — Activity-over-time chart
+
+- [ ] Monthly bar chart of message count. X-axis: months. Y-axis: message count.
+- [ ] **Hand-rolled SVG** (decided — no charting lib dependency). Build a `<BarChart>` and `<DonutChart>` primitive in `src/components/charts/` using raw `<svg>` elements and Tailwind for color tokens. Keeps the bundle lean and gives full visual control.
+- [ ] Toggle between: Messages / Snaps / Memories / Calls.
+
+### 5.3 — Most-contacted (messages + snaps combined)
+
+- [ ] Top 10 contacts ranked by total interactions.
+- [ ] Horizontal bar chart or ranked list with avatars, counts, and a "sent vs. received" split bar.
+- [ ] Clicking a contact navigates to their conversation.
+
+### 5.4 — Snap stats
+
+- [ ] Most-snapped contacts (separate from messages).
+- [ ] IMAGE vs VIDEO breakdown (donut chart or pill bar).
+
+### 5.5 — Call stats (aggregate only)
+
+- [ ] Total incoming / completed / outgoing counts.
+- [ ] VIDEO vs AUDIO breakdown.
+- [ ] Average call duration.
+- [ ] Call activity over time (monthly bar, same chart component as 5.2).
+- [ ] Footnote: "Call logs don't include contact names — this is a limitation of the Snapchat export."
+
+- [ ] Commit: `feat(views): stats view — activity charts, most-contacted, call summary`
+
+---
+
+## Phase 6 — Global search & filters
+
+**Goal:** Find anything across all data with a single keypress.
+
+### 6.1 — Search overlay (`src/views/search/SearchOverlay.tsx`)
+
+- [ ] **Trigger:** `Cmd/Ctrl + K` globally, or clicking the search icon in the sidebar.
+- [ ] Full-screen modal overlay with a centered search input.
+- [ ] Input auto-focuses on open. Escape closes.
+- [ ] Results appear below the input, grouped by type: **Contacts**, **Messages**, **Memories** (by date).
+- [ ] Each result row shows: type icon, headline, secondary info (contact name for messages, date for memories).
+- [ ] Keyboard navigation: ↑/↓ to move through results, Enter to navigate.
+- [ ] No results state: "No results for '{query}'" with a suggestion to try a different term.
+
+### 6.2 — Search engine
+
+- [ ] MiniSearch index built in Phase 1. Debounced query (150ms) from the input.
+- [ ] Contact name search: fuzzy match against all contact usernames.
+- [ ] Message content search: only saved messages have text — results are shown with the `content` snippet highlighted.
+- [ ] Memory search: by date string (e.g. "2024-02" returns all memories from Feb 2024).
+
+### 6.3 — Filter integration
+
+- [ ] The filter bar in Chats and Memories views both use a shared `<FilterBar>` component.
+- [ ] Filters: date range (start/end date pickers), media type (multiselect), direction (sent/received) for Chats.
+- [ ] Filters are URL-searchparam-serialized so they survive navigation (e.g. `/chats?contact=alice&type=MEDIA`).
+- [ ] "Clear filters" resets all params and re-runs the unfiltered query.
+
+- [ ] Commit: `feat(search): global search overlay + filter integration`
+
+---
+
+## Phase 7 — Polish, empty states & accessibility
+
+**Goal:** Every edge case is handled gracefully. The app feels finished.
+
+### 7.1 — Empty states
+
+Every view needs a thoughtful empty state — not a blank white page.
+
+| View | Condition | Empty state |
+|---|---|---|
+| Import screen | First visit | Animated drop zone with instructional copy |
+| Contact list | No contacts found | "No conversations match your search" |
+| Conversation pane | No messages in thread | "No messages to show" with media type hint |
+| Memories gallery | No memories after filtering | "No memories match these filters" + clear button |
+| Stats | No data yet | "Import your Snapchat export to see your stats" |
+| Search | No results | "Nothing found for '{query}'" |
+| Search | Query too short | "Type at least 2 characters to search" |
+
+### 7.2 — Error boundaries
+
+- [ ] A top-level `<ErrorBoundary>` catches React render crashes and shows a friendly "Something went wrong" screen with a reload button.
+- [ ] Per-parser warnings surface in a dismissible banner on the main layout (e.g. "Some memories couldn't be matched to files — X items skipped").
+
+### 7.3 — Responsive layout
+
+- [ ] **Desktop (≥1024px):** Two-panel chats, three-column memories grid, full sidebar.
+- [ ] **Tablet (768–1023px):** Single-panel chats (back button to return to contact list), two-column memories, collapsible sidebar.
+- [ ] **Mobile (< 768px):** Stacked everything, bottom nav bar replaces sidebar, single-column memories.
+
+### 7.4 — Accessibility
+
+- [ ] All interactive elements keyboard-navigable with visible focus rings.
+- [ ] ARIA labels on icon buttons, dialog roles on modals.
+- [ ] Color contrast: all text meets WCAG AA (4.5:1 minimum).
+- [ ] `prefers-reduced-motion`: all transitions disabled if user prefers.
+- [ ] Screen reader: landmark roles (`<nav>`, `<main>`, `<aside>`), live regions for async import progress.
+
+### 7.5 — Performance audit
+
+- [ ] Lighthouse score targets: **Performance ≥ 90, Accessibility ≥ 95, Best Practices ≥ 95**.
+- [ ] Bundle analysis with `rollup-plugin-visualizer` — ensure no accidental large transitive deps.
+- [ ] Verify memories grid: scroll through 1,400+ items without dropped frames.
+
+### 7.6 — Final docs & README update
+
+- [ ] Update `README.md` setup instructions to reference `pnpm`.
+- [ ] Add a screenshot or GIF to the README once the UI is stable.
+
+- [ ] Commit: `feat(polish): empty states, error boundaries, responsive layout, a11y`
+
+---
+
+## Dependency list (final)
+
+```bash
+# Runtime
+pnpm add dexie minisearch @tanstack/react-virtual react-router-dom @fontsource/inter
+
+# Dev
+pnpm add -D tailwindcss @tailwindcss/vite typescript eslint prettier \
+  @typescript-eslint/eslint-plugin @typescript-eslint/parser \
+  eslint-plugin-react-hooks rollup-plugin-visualizer \
+  vitest @testing-library/react @testing-library/user-event jsdom
+```
+
+> **Note:** No charting library. Charts are hand-rolled SVG components (`src/components/charts/`).
+
+---
+
+## Testing strategy
+
+- **Unit tests (Vitest):** All parsers, the search index builder, the memories join logic, the Dexie import function (with an in-memory Dexie mock).
+- **Component tests:** `<ImportScreen>` drop zone, `<MessageBubble>` content/null handling, `<MemoryCard>` overlay compositing.
+- **No E2E in v1** — the app is purely local and has no network layer to test against; unit + component coverage is sufficient.
+
+Run tests with:
+```bash
+pnpm test          # watch mode
+pnpm test:run      # CI single-run
+```
+
+---
+
+## Commit cadence summary
+
+| Commit | Contents |
+|---|---|
+| `chore: scaffold Vite + React + TS + Tailwind + tooling` | Phase 0 |
+| `feat(data): ingest pipeline, parsers, Dexie schema, search index` | Phase 1 |
+| `feat(ui): app shell, design system, shared components` | Phase 2 |
+| `feat(views): chats view — contact list + conversation pane` | Phase 3 |
+| `feat(views): memories gallery — masonry grid + lightbox` | Phase 4 |
+| `feat(views): stats view — activity charts, most-contacted, call summary` | Phase 5 |
+| `feat(search): global search overlay + filter integration` | Phase 6 |
+| `feat(polish): empty states, error bounds, responsive layout, a11y` | Phase 7 |
+
+---
+
+## Design decisions — all resolved ✅
+
+| # | Decision | Choice |
+|---|---|---|
+| 1 | **Memories join strategy** | Files-drive; JSON is metadata-only. Files are primary source of truth. |
+| 2 | **Group chat display** | Folded into the contact list (keyed by `Conversation Title` when non-null). |
+| 3 | **Charting approach** | Hand-rolled SVG — `<BarChart>` and `<DonutChart>` in `src/components/charts/`. |
+| 4 | **Masonry layout** | JS-calculated positions (`top`/`left`) with `ResizeObserver`; viewport-intersect virtualization. |
