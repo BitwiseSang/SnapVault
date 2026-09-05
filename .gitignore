@@ -1,0 +1,17 @@
+# Snapchat export data — contains real private user data, NEVER commit
+sample_data/
+
+# Any directory that looks like a Snapchat export root
+# (has json/chat_history.json or a memories/ folder)
+# Add any additional export dirs here if you place them locally for testing
+
+# Node / build artefacts
+node_modules/
+dist/
+.env
+.env.local
+
+# Editor / OS
+.DS_Store
+.vscode/
+*.local
