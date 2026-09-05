@@ -1,4 +1,4 @@
-import { AppEvent, EventType, MessageEvent } from '../models/events'
+import { AppEvent, EventType, MessageEvent, SnapEvent } from '../models/events'
 import { ImportMetaRecord } from '../models/ingest'
 import { db } from './schema'
 
@@ -31,6 +31,22 @@ export async function getChatMessagesByContact(contact: string): Promise<Message
     .equals(['message', contact])
     .sortBy('timestamp')
   return events as MessageEvent[]
+}
+
+export type TimelineEvent = MessageEvent | SnapEvent
+
+export async function getConversationTimeline(contact: string): Promise<TimelineEvent[]> {
+  if (contact === '__all__') {
+    const list = await db.events.where('type').anyOf(['message', 'snap']).sortBy('timestamp')
+    return list as TimelineEvent[]
+  }
+
+  const list = await db.events
+    .where('contact')
+    .equals(contact)
+    .filter((ev) => ev.type === 'message' || ev.type === 'snap')
+    .sortBy('timestamp')
+  return list as TimelineEvent[]
 }
 
 export async function getMediaBlob(path: string): Promise<Blob | undefined> {
