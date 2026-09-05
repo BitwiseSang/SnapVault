@@ -12,13 +12,14 @@ export interface SearchDoc {
   mediaFile?: string
   title: string
   snippet: string
+  date?: string
 }
 
 let searchIndexInstance: MiniSearch<SearchDoc> | null = null
 
 export function buildSearchIndex(events: AppEvent[]): MiniSearch<SearchDoc> {
   const index = new MiniSearch<SearchDoc>({
-    fields: ['title', 'snippet', 'contact', 'content', 'location'],
+    fields: ['title', 'snippet', 'contact', 'content', 'location', 'date'],
     storeFields: [
       'id',
       'type',
@@ -29,6 +30,7 @@ export function buildSearchIndex(events: AppEvent[]): MiniSearch<SearchDoc> {
       'mediaFile',
       'title',
       'snippet',
+      'date',
     ],
     searchOptions: {
       boost: { title: 3, contact: 2, content: 1.5 },
@@ -41,6 +43,8 @@ export function buildSearchIndex(events: AppEvent[]): MiniSearch<SearchDoc> {
   const uniqueContacts = new Set<string>()
 
   for (const ev of events) {
+    const dateStr = ev.timestamp ? ev.timestamp.slice(0, 10) : ''
+
     // 1. Index contact names
     if (ev.contact && !uniqueContacts.has(ev.contact)) {
       uniqueContacts.add(ev.contact)
@@ -49,6 +53,7 @@ export function buildSearchIndex(events: AppEvent[]): MiniSearch<SearchDoc> {
         type: 'contact',
         contact: ev.contact,
         timestamp: ev.timestamp,
+        date: dateStr,
         title: ev.contact,
         snippet: `Contact conversation with ${ev.contact}`,
       })
@@ -65,26 +70,29 @@ export function buildSearchIndex(events: AppEvent[]): MiniSearch<SearchDoc> {
           contact: msg.contact,
           content: msg.content,
           timestamp: msg.timestamp,
+          date: dateStr,
           title: msg.contact ?? 'Chat',
           snippet: preview,
         })
       }
     }
 
-    // 3. Index memories with location or date
+    // 3. Index memories
     if (ev.type === 'memory') {
       const mem = ev as MemoryEvent
-      if (mem.location && mem.location.trim() && !mem.location.includes('0.0, 0.0')) {
-        docs.push({
-          id: mem.id,
-          type: 'memory',
-          timestamp: mem.timestamp,
-          location: mem.location,
-          mediaFile: mem.mediaFile,
-          title: `Memory (${mem.mediaKind})`,
-          snippet: mem.location,
-        })
-      }
+      const hasLocation = mem.location && mem.location.trim() && !mem.location.includes('0.0, 0.0')
+      const cleanLoc = hasLocation ? mem.location.replace('Latitude, Longitude:', '').trim() : ''
+
+      docs.push({
+        id: mem.id,
+        type: 'memory',
+        timestamp: mem.timestamp,
+        date: dateStr,
+        location: cleanLoc,
+        mediaFile: mem.mediaFile,
+        title: `${mem.mediaKind} Memory`,
+        snippet: cleanLoc ? `${dateStr} • ${cleanLoc}` : dateStr,
+      })
     }
   }
 
@@ -99,7 +107,7 @@ export function searchApp(query: string): SearchDoc[] {
   }
 
   const results: SearchResult[] = searchIndexInstance.search(query.trim())
-  return results.slice(0, 30) as unknown as SearchDoc[]
+  return results.slice(0, 40) as unknown as SearchDoc[]
 }
 
 /**

@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { Image as ImageIcon, Video as VideoIcon, ArrowDownUp } from 'lucide-react'
 import { MemoryEvent } from '../../models/events'
 import { getEventsByType } from '../../db/db'
@@ -13,12 +14,49 @@ type MediaTypeFilter = 'ALL' | 'IMAGE' | 'VIDEO'
 type SortOrder = 'newest_first' | 'oldest_first'
 
 export function MemoriesView() {
+  const [searchParams, setSearchParams] = useSearchParams()
   const [memories, setMemories] = useState<MemoryEvent[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [typeFilter, setTypeFilter] = useState<MediaTypeFilter>('ALL')
-  const [selectedYear, setSelectedYear] = useState<string>('ALL')
-  const [sortOrder, setSortOrder] = useState<SortOrder>('newest_first')
   const [activeLightboxIndex, setActiveLightboxIndex] = useState<number | null>(null)
+
+  const rawType = searchParams.get('type')
+  const typeFilter: MediaTypeFilter = rawType === 'IMAGE' || rawType === 'VIDEO' ? rawType : 'ALL'
+
+  const selectedYear = searchParams.get('year') || 'ALL'
+  const sortOrder: SortOrder =
+    searchParams.get('sort') === 'oldest_first' ? 'oldest_first' : 'newest_first'
+
+  const setTypeFilter = (t: MediaTypeFilter) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev)
+      if (t === 'ALL') next.delete('type')
+      else next.set('type', t)
+      return next
+    })
+  }
+
+  const setSelectedYear = (yr: string) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev)
+      if (yr === 'ALL') next.delete('year')
+      else next.set('year', yr)
+      return next
+    })
+  }
+
+  const toggleSortOrder = () => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev)
+      const newSort = sortOrder === 'newest_first' ? 'oldest_first' : 'newest_first'
+      if (newSort === 'newest_first') next.delete('sort')
+      else next.set('sort', newSort)
+      return next
+    })
+  }
+
+  const clearAllFilters = () => {
+    setSearchParams({})
+  }
 
   // Fetch memories from IndexedDB on mount
   useEffect(() => {
@@ -141,9 +179,7 @@ export function MemoriesView() {
             label={`Sorting: ${sortOrder === 'newest_first' ? 'Newest first' : 'Oldest first'}`}
             size="md"
             variant="secondary"
-            onClick={() =>
-              setSortOrder((prev) => (prev === 'newest_first' ? 'oldest_first' : 'newest_first'))
-            }
+            onClick={toggleSortOrder}
           >
             <ArrowDownUp className="w-4 h-4" />
           </IconButton>
@@ -203,10 +239,7 @@ export function MemoriesView() {
               description="No saved photos or videos match the current filters."
               action={
                 <button
-                  onClick={() => {
-                    setTypeFilter('ALL')
-                    setSelectedYear('ALL')
-                  }}
+                  onClick={clearAllFilters}
                   className="text-xs text-accent font-semibold underline cursor-pointer hover:opacity-80"
                 >
                   Clear all filters

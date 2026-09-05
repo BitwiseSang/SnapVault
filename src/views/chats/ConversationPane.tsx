@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
+import { useSearchParams } from 'react-router-dom'
 import { Layers, ArrowDownUp, Bookmark, Camera, MessageSquare, Sparkles } from 'lucide-react'
 import { ContactSummary, TimelineEvent } from '../../db/db'
 import { Avatar } from '../../components/Avatar'
@@ -18,9 +19,36 @@ interface ConversationPaneProps {
 type FilterCategory = 'ALL' | 'TEXT' | 'MEDIA' | 'SAVED' | 'SNAPS'
 
 export function ConversationPane({ contact, summary, events, isLoading }: ConversationPaneProps) {
-  const [filter, setFilter] = useState<FilterCategory>('ALL')
-  const [sortOrder, setSortOrder] = useState<'oldest_first' | 'newest_first'>('oldest_first')
+  const [searchParams, setSearchParams] = useSearchParams()
   const parentRef = useRef<HTMLDivElement>(null)
+
+  const rawFilter = searchParams.get('filter')
+  const filter: FilterCategory =
+    rawFilter === 'TEXT' || rawFilter === 'MEDIA' || rawFilter === 'SAVED' || rawFilter === 'SNAPS'
+      ? rawFilter
+      : 'ALL'
+
+  const sortOrder: 'oldest_first' | 'newest_first' =
+    searchParams.get('sort') === 'newest_first' ? 'newest_first' : 'oldest_first'
+
+  const setFilter = (f: FilterCategory) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev)
+      if (f === 'ALL') next.delete('filter')
+      else next.set('filter', f)
+      return next
+    })
+  }
+
+  const toggleSort = () => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev)
+      const newSort = sortOrder === 'oldest_first' ? 'newest_first' : 'oldest_first'
+      if (newSort === 'oldest_first') next.delete('sort')
+      else next.set('sort', newSort)
+      return next
+    })
+  }
 
   const isAllStream = contact === '__all__'
 
@@ -54,7 +82,6 @@ export function ConversationPane({ contact, summary, events, isLoading }: Conver
   // Auto-scroll to bottom on initial load if oldest_first
   useEffect(() => {
     if (sortOrder === 'oldest_first' && filteredEvents.length > 0 && parentRef.current) {
-      // scroll to bottom after layout
       setTimeout(() => {
         if (parentRef.current) {
           parentRef.current.scrollTop = parentRef.current.scrollHeight
@@ -132,9 +159,7 @@ export function ConversationPane({ contact, summary, events, isLoading }: Conver
         <div className="flex items-center gap-2">
           <IconButton
             label={`Sorting: ${sortOrder === 'oldest_first' ? 'Oldest first (chat style)' : 'Newest first'}`}
-            onClick={() =>
-              setSortOrder((prev) => (prev === 'oldest_first' ? 'newest_first' : 'oldest_first'))
-            }
+            onClick={toggleSort}
             size="sm"
           >
             <ArrowDownUp className="w-4 h-4" />
