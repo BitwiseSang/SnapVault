@@ -78,7 +78,7 @@ export function ContactList({
   }
 
   return (
-    <div className="flex flex-col h-full w-80 lg:w-96 border-r border-border bg-surface shrink-0">
+    <div className="flex flex-col h-full w-full bg-surface shrink-0">
       {/* List Header */}
       <div className="p-4 border-b border-border space-y-3 shrink-0">
         <div className="flex items-center justify-between">

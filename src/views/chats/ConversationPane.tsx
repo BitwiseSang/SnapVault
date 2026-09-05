@@ -1,7 +1,15 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useSearchParams } from 'react-router-dom'
-import { Layers, ArrowDownUp, Bookmark, Camera, MessageSquare, Sparkles } from 'lucide-react'
+import {
+  Layers,
+  ArrowDownUp,
+  Bookmark,
+  Camera,
+  MessageSquare,
+  Sparkles,
+  ArrowLeft,
+} from 'lucide-react'
 import { ContactSummary, TimelineEvent } from '../../db/db'
 import { Avatar } from '../../components/Avatar'
 import { Badge } from '../../components/Badge'
@@ -14,11 +22,18 @@ interface ConversationPaneProps {
   summary?: ContactSummary
   events: TimelineEvent[]
   isLoading: boolean
+  onBack?: () => void
 }
 
 type FilterCategory = 'ALL' | 'TEXT' | 'MEDIA' | 'SAVED' | 'SNAPS'
 
-export function ConversationPane({ contact, summary, events, isLoading }: ConversationPaneProps) {
+export function ConversationPane({
+  contact,
+  summary,
+  events,
+  isLoading,
+  onBack,
+}: ConversationPaneProps) {
   const [searchParams, setSearchParams] = useSearchParams()
   const parentRef = useRef<HTMLDivElement>(null)
 
@@ -119,8 +134,18 @@ export function ConversationPane({ contact, summary, events, isLoading }: Conver
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden bg-bg">
       {/* Pane Header */}
-      <div className="px-6 py-3.5 border-b border-border bg-surface flex items-center justify-between shrink-0">
-        <div className="flex items-center gap-3 min-w-0">
+      <div className="px-4 md:px-6 py-3.5 border-b border-border bg-surface flex items-center justify-between shrink-0">
+        <div className="flex items-center gap-2.5 min-w-0">
+          {onBack && (
+            <button
+              onClick={onBack}
+              aria-label="Back to conversations"
+              className="md:hidden p-1.5 -ml-1 rounded-lg text-text-secondary hover:text-text-primary hover:bg-surface-raised cursor-pointer transition shrink-0"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+          )}
+
           {isAllStream ? (
             <div className="w-10 h-10 rounded-full bg-accent/20 text-accent-fg flex items-center justify-center border border-accent/30 shrink-0">
               <Layers className="w-5 h-5 text-text-primary" />

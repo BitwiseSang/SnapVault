@@ -38,16 +38,13 @@ export function ChatsView() {
     }
   }, [])
 
-  // Active contact: decode from URL, or fallback to first contact if available
+  // Active contact: decode from URL if present
   const activeContact = useMemo(() => {
     if (urlContact) {
       return decodeURIComponent(urlContact)
     }
-    if (contacts.length > 0) {
-      return contacts[0]!.contact
-    }
     return null
-  }, [urlContact, contacts])
+  }, [urlContact])
 
   // 2. Fetch events when activeContact changes
   useEffect(() => {
@@ -98,19 +95,28 @@ export function ChatsView() {
 
   return (
     <div className="flex-1 flex h-full min-w-0 overflow-hidden">
-      <ContactList
-        contacts={contacts}
-        selectedContact={activeContact}
-        onSelectContact={handleSelectContact}
-        totalEventsCount={totalEventsCount}
-      />
+      <div
+        className={`h-full w-full md:w-80 lg:w-96 shrink-0 md:border-r border-border ${
+          urlContact ? 'hidden md:flex' : 'flex'
+        }`}
+      >
+        <ContactList
+          contacts={contacts}
+          selectedContact={activeContact}
+          onSelectContact={handleSelectContact}
+          totalEventsCount={totalEventsCount}
+        />
+      </div>
 
-      <ConversationPane
-        contact={activeContact}
-        summary={activeSummary}
-        events={displayedEvents}
-        isLoading={isLoadingEvents}
-      />
+      <div className={`flex-1 h-full min-w-0 ${!urlContact ? 'hidden md:flex' : 'flex'}`}>
+        <ConversationPane
+          contact={activeContact}
+          summary={activeSummary}
+          events={displayedEvents}
+          isLoading={isLoadingEvents}
+          onBack={() => navigate('/chats')}
+        />
+      </div>
     </div>
   )
 }

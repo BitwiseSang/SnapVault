@@ -6,6 +6,7 @@ import { ChatsView } from './views/chats/ChatsView'
 import { MemoriesView } from './views/memories/MemoriesView'
 import { StatsView } from './views/stats/StatsView'
 import { Spinner } from './components/Spinner'
+import { ErrorBoundary } from './components/ErrorBoundary'
 
 function RootRedirect() {
   const { isReady, isLoadingMeta } = useApp()
@@ -28,23 +29,25 @@ function RootRedirect() {
 
 export function App() {
   return (
-    <AppProvider>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<RootRedirect />} />
-          <Route path="/import" element={<ImportScreen />} />
+    <ErrorBoundary>
+      <AppProvider>
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<RootRedirect />} />
+            <Route path="/import" element={<ImportScreen />} />
 
-          <Route element={<MainLayout />}>
-            <Route path="/chats" element={<ChatsView />} />
-            <Route path="/chats/:contact" element={<ChatsView />} />
-            <Route path="/memories" element={<MemoriesView />} />
-            <Route path="/stats" element={<StatsView />} />
-          </Route>
+            <Route element={<MainLayout />}>
+              <Route path="/chats" element={<ChatsView />} />
+              <Route path="/chats/:contact" element={<ChatsView />} />
+              <Route path="/memories" element={<MemoriesView />} />
+              <Route path="/stats" element={<StatsView />} />
+            </Route>
 
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </BrowserRouter>
-    </AppProvider>
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </BrowserRouter>
+      </AppProvider>
+    </ErrorBoundary>
   )
 }
 

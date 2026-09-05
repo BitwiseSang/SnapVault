@@ -38,9 +38,42 @@ export function MainLayout() {
   ]
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-bg text-text-primary">
-      {/* Sidebar */}
-      <aside className="w-64 border-r border-border bg-surface flex flex-col shrink-0">
+    <div className="flex flex-col md:flex-row h-screen w-screen overflow-hidden bg-bg text-text-primary">
+      {/* Top Header for Mobile */}
+      <header className="md:hidden h-14 border-b border-border bg-surface flex items-center justify-between px-4 shrink-0 z-20">
+        <div
+          className="flex items-center gap-2 cursor-pointer select-none"
+          onClick={() => navigate('/chats')}
+        >
+          <div className="w-7 h-7 rounded-xl bg-accent text-accent-fg font-black text-xs flex items-center justify-center shadow-xs">
+            SV
+          </div>
+          <span className="font-bold text-sm tracking-tight">SnapVault</span>
+        </div>
+
+        <div className="flex items-center gap-1">
+          <IconButton label="Search" size="sm" onClick={() => setIsSearchOpen(true)}>
+            <Search className="w-4 h-4 text-text-secondary" />
+          </IconButton>
+          <IconButton
+            label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+            onClick={toggleTheme}
+            size="sm"
+          >
+            {theme === 'dark' ? (
+              <Sun className="w-4 h-4 text-amber-400" />
+            ) : (
+              <Moon className="w-4 h-4" />
+            )}
+          </IconButton>
+          <IconButton label="Re-import archive" onClick={() => navigate('/import')} size="sm">
+            <RefreshCw className="w-3.5 h-3.5 text-text-secondary" />
+          </IconButton>
+        </div>
+      </header>
+
+      {/* Persistent Sidebar for Desktop/Tablet */}
+      <aside className="hidden md:flex w-60 lg:w-64 border-r border-border bg-surface flex-col shrink-0">
         {/* Brand header */}
         <div className="h-16 border-b border-border flex items-center justify-between px-5">
           <div
@@ -137,10 +170,31 @@ export function MainLayout() {
         </div>
       </aside>
 
-      {/* Main viewport */}
-      <main className="flex-1 flex flex-col min-w-0 overflow-hidden bg-bg">
+      {/* Main Viewport Content */}
+      <main className="flex-1 flex flex-col min-w-0 overflow-hidden bg-bg relative">
         <Outlet />
       </main>
+
+      {/* Bottom Navigation Bar for Mobile */}
+      <nav className="md:hidden h-14 border-t border-border bg-surface flex items-center justify-around px-2 shrink-0 z-20">
+        {navItems.map((item) => {
+          const Icon = item.icon
+          return (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              className={({ isActive }) =>
+                `flex flex-col items-center justify-center gap-0.5 py-1 px-4 rounded-xl text-[10px] font-medium transition ${
+                  isActive ? 'text-accent font-bold' : 'text-text-secondary hover:text-text-primary'
+                }`
+              }
+            >
+              <Icon className="w-5 h-5" />
+              <span>{item.label}</span>
+            </NavLink>
+          )
+        })}
+      </nav>
 
       {/* Global Cmd+K Search Modal */}
       <SearchOverlay />
