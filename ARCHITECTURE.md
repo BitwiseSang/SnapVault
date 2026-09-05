@@ -50,17 +50,17 @@ Top-level object keyed by **contact username**. Each value is an array of messag
 {
   "<contact_username>": [
     {
-      "From": "maxwells.ang",            // string — sender's username
-      "Media Type": "TEXT",              // see media types below
+      "From": "maxwells.ang", // string — sender's username
+      "Media Type": "TEXT", // see media types below
       "Created": "2026-09-05 15:20:49 UTC",
-      "Content": null,                   // string | null — text body; null for most messages (see note)
-      "Conversation Title": null,        // string | null — non-null for group chats
-      "IsSender": true,                  // bool — true if the export owner sent this message
+      "Content": null, // string | null — text body; null for most messages (see note)
+      "Conversation Title": null, // string | null — non-null for group chats
+      "IsSender": true, // bool — true if the export owner sent this message
       "Created(microseconds)": 1788621649238,
-      "IsSaved": false,                  // bool — whether the message was saved by a participant
-      "Media IDs": ""                    // string — opaque ID when a saved media is attached; empty otherwise
-    }
-  ]
+      "IsSaved": false, // bool — whether the message was saved by a participant
+      "Media IDs": "", // string — opaque ID when a saved media is attached; empty otherwise
+    },
+  ],
 }
 ```
 
@@ -81,13 +81,13 @@ Same keyed-by-contact structure as `chat_history.json`, but with a reduced field
   "<contact_username>": [
     {
       "From": "allankipsan2024",
-      "Media Type": "IMAGE",             // IMAGE | VIDEO only
+      "Media Type": "IMAGE", // IMAGE | VIDEO only
       "Created": "2026-09-05 15:22:15 UTC",
       "Conversation Title": null,
       "IsSender": false,
-      "Created(microseconds)": 1788621735710
-    }
-  ]
+      "Created(microseconds)": 1788621735710,
+    },
+  ],
 }
 ```
 
@@ -101,18 +101,18 @@ Snap media content is **not** included in the export — only metadata. This is 
 
 ```jsonc
 {
-  "Outgoing Calls": [],                  // may be empty
+  "Outgoing Calls": [], // may be empty
   "Incoming Calls": [
     {
       "Date & Time": "2026-08-21 14:05:41 UTC",
-      "Type": "VIDEO",                   // VIDEO | AUDIO
+      "Type": "VIDEO", // VIDEO | AUDIO
       "People in Chat": 2,
-      "Result": "Call Received",         // "Call Received" | "Call Failed" | "Call Succeeded"
+      "Result": "Call Received", // "Call Received" | "Call Failed" | "Call Succeeded"
       "City": "eldoret",
       "Country": "KE",
       "Length (sec)": 58,
-      "Network": "WIFI"                  // "WIFI" | "UNREACHABLE"
-    }
+      "Network": "WIFI", // "WIFI" | "UNREACHABLE"
+    },
   ],
   "Completed Calls": [
     {
@@ -123,11 +123,11 @@ Snap media content is **not** included in the export — only metadata. This is 
       "City": "eldoret",
       "Country": "KE",
       "Length (sec)": 7,
-      "Network": "WIFI"
-    }
+      "Network": "WIFI",
+    },
   ],
-  "Chat Sessions": [],                   // empty in observed data
-  "Game Sessions": []                    // empty in observed data
+  "Chat Sessions": [], // empty in observed data
+  "Game Sessions": [], // empty in observed data
 }
 ```
 
@@ -144,12 +144,12 @@ Top-level object with a single key `"Saved Media"`, containing an array of entri
   "Saved Media": [
     {
       "Date": "2026-09-02 15:27:36 UTC",
-      "Media Type": "Video",             // "Video" | "Image" (title-cased, unlike other files)
+      "Media Type": "Video", // "Video" | "Image" (title-cased, unlike other files)
       "Location": "Latitude, Longitude: 0.5560059, 35.24502",
-      "Download Link": "",              // ALWAYS empty string in this export
-      "Media Download Url": ""          // ALWAYS empty string in this export
-    }
-  ]
+      "Download Link": "", // ALWAYS empty string in this export
+      "Media Download Url": "", // ALWAYS empty string in this export
+    },
+  ],
 }
 ```
 
@@ -195,8 +195,8 @@ Define a single `IngestSource` interface with two implementations so the rest of
 
 ```ts
 interface IngestSource {
-  listFiles(): Promise<IngestedFile[]>;
-  readFile(path: string): Promise<Blob>;
+  listFiles(): Promise<IngestedFile[]>
+  readFile(path: string): Promise<Blob>
 }
 ```
 
@@ -210,54 +210,54 @@ Everything downstream of ingest (parsing, normalization, storage) is written onc
 Field names below reflect the **verified** raw JSON shapes. Parsers must map these to the normalized model.
 
 ```ts
-type EventType = "message" | "snap" | "call" | "memory";
+type EventType = 'message' | 'snap' | 'call' | 'memory'
 
 interface BaseEvent {
-  id: string;
-  type: EventType;
-  timestamp: string;   // ISO 8601, converted from "YYYY-MM-DD HH:MM:SS UTC"
-  contact?: string;    // username — present for message/snap; absent for call/memory
+  id: string
+  type: EventType
+  timestamp: string // ISO 8601, converted from "YYYY-MM-DD HH:MM:SS UTC"
+  contact?: string // username — present for message/snap; absent for call/memory
 }
 
 interface MessageEvent extends BaseEvent {
-  type: "message";
-  direction: "sent" | "received";  // derived from IsSender
-  mediaType: string;               // raw "Media Type" value: TEXT | MEDIA | NOTE | STICKER | etc.
-  content: string | null;          // raw "Content" — null for most messages
-  isSaved: boolean;
-  mediaIds: string;                // raw "Media IDs" — empty string when absent
-  conversationTitle: string | null;
+  type: 'message'
+  direction: 'sent' | 'received' // derived from IsSender
+  mediaType: string // raw "Media Type" value: TEXT | MEDIA | NOTE | STICKER | etc.
+  content: string | null // raw "Content" — null for most messages
+  isSaved: boolean
+  mediaIds: string // raw "Media IDs" — empty string when absent
+  conversationTitle: string | null
 }
 
 interface SnapEvent extends BaseEvent {
-  type: "snap";
-  direction: "sent" | "received";
-  mediaType: "IMAGE" | "VIDEO";
-  conversationTitle: string | null;
+  type: 'snap'
+  direction: 'sent' | 'received'
+  mediaType: 'IMAGE' | 'VIDEO'
+  conversationTitle: string | null
 }
 
 interface CallEvent extends BaseEvent {
-  type: "call";
+  type: 'call'
   // NOTE: no contact field — talk_history.json contains no participant info
-  callType: "VIDEO" | "AUDIO";
-  callCategory: "Incoming Calls" | "Outgoing Calls" | "Completed Calls";
-  result?: string;       // "Call Received" | "Call Failed" | "Call Succeeded" — absent on Completed Calls
-  lengthSec: number;
-  network: string;
-  city: string;
-  country: string;
+  callType: 'VIDEO' | 'AUDIO'
+  callCategory: 'Incoming Calls' | 'Outgoing Calls' | 'Completed Calls'
+  result?: string // "Call Received" | "Call Failed" | "Call Succeeded" — absent on Completed Calls
+  lengthSec: number
+  network: string
+  city: string
+  country: string
 }
 
 interface MemoryEvent extends BaseEvent {
-  type: "memory";
+  type: 'memory'
   // NOTE: contact is always absent — memories are not associated with a contact
-  mediaFile: string;       // path/handle to the -main file (jpg or mp4)
-  overlayFile?: string;    // path/handle to the -overlay file, if present
-  mediaKind: "Image" | "Video";  // title-cased to match raw JSON value
-  location: string;        // raw "Location" string, e.g. "Latitude, Longitude: 0.0, 0.0"
+  mediaFile: string // path/handle to the -main file (jpg or mp4)
+  overlayFile?: string // path/handle to the -overlay file, if present
+  mediaKind: 'Image' | 'Video' // title-cased to match raw JSON value
+  location: string // raw "Location" string, e.g. "Latitude, Longitude: 0.0, 0.0"
 }
 
-type AppEvent = MessageEvent | SnapEvent | CallEvent | MemoryEvent;
+type AppEvent = MessageEvent | SnapEvent | CallEvent | MemoryEvent
 ```
 
 ### Storage layer

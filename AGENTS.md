@@ -6,7 +6,7 @@ Instructions for any AI coding agent (Claude Code, Gemini CLI, or otherwise) wor
 
 This repo is worked on using an investigate-before-implement pattern. Concretely:
 
-- **Investigate before writing code.** Before implementing a parser, component, or feature, trace through the actual data/call chain involved and confirm your understanding against real artifacts (real JSON files, real component props) — not against what `ARCHITECTURE.md` *assumes* they look like.
+- **Investigate before writing code.** Before implementing a parser, component, or feature, trace through the actual data/call chain involved and confirm your understanding against real artifacts (real JSON files, real component props) — not against what `ARCHITECTURE.md` _assumes_ they look like.
 - **Separate auditing from fixing.** If you're diagnosing a bug or an ambiguous schema, do that as its own pass — report what you found — before jumping into a fix. Don't interleave "investigating" and "patching" in the same breath; it hides mistakes.
 - **Flag ambiguity instead of guessing.** If a JSON field could mean two things, if a file might be optional, or if a design decision in `ARCHITECTURE.md` doesn't hold up against the real data — stop and surface it explicitly (in your response, or in a `NOTES.md` at the repo root) rather than silently picking an interpretation and moving on.
 
@@ -56,6 +56,7 @@ This also applies to any other directory that looks like a Snapchat export (cont
 ## Reporting back
 
 When you finish a task, summarize:
+
 - What you verified against real data vs. what's still assumed.
 - Any ambiguity you flagged instead of resolving unilaterally.
 - Anything in `ARCHITECTURE.md` that turned out to be wrong or incomplete, so it can be corrected.

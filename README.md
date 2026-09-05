@@ -9,7 +9,7 @@ A local-first, private web app for browsing your own exported Snapchat data — 
 Snapchat's "Download My Data" export gives you two things:
 
 1. A `json/` folder with the real, structured data (`chat_history.json`, `snap_history.json`, `talk_history.json`, `memories_history.json`, `feature_emails.json`).
-2. An `html/` folder that renders a *subset* of that same data into one static HTML page per contact, plus `snap_history.html` / `talk_history.html` — with no search, no cross-contact view, and no link to your actual memories.
+2. An `html/` folder that renders a _subset_ of that same data into one static HTML page per contact, plus `snap_history.html` / `talk_history.html` — with no search, no cross-contact view, and no link to your actual memories.
 
 Snap Vault skips the HTML entirely and reads the JSON + media directly, so you get one app with global search, sorting, and a browsing experience closer to Snapchat itself.
 
@@ -20,7 +20,7 @@ Snap Vault skips the HTML entirely and reads the JSON + media directly, so you g
 - **Chat history viewer** — per-contact conversation view, plus a unified timeline across all contacts.
 - **Memories gallery** — masonry/grid browsing of your saved photos & videos, with overlay (caption/sticker) compositing.
 - **Snap & call history / stats** — counts, streak-style timelines, most-contacted, activity-over-time. Note: call stats are aggregate only — the export does not record who you called.
-- **Global search** — full-text search across messages and contact names. Note: Snapchat only exports the text of *saved* messages; most chat messages will have null content, so search coverage is limited by the export format.
+- **Global search** — full-text search across messages and contact names. Note: Snapchat only exports the text of _saved_ messages; most chat messages will have null content, so search coverage is limited by the export format.
 - **Sort & filter** — by date range, contact, media type, event type.
 - **Drag-and-drop ingest** — starting with the already-unzipped export folder; raw `.zip` support is a fast-follow (see [ARCHITECTURE.md](./ARCHITECTURE.md)).
 - **Persistent local index** — parsed once, cached in IndexedDB, so reopening the app doesn't require re-dropping the folder.
@@ -39,14 +39,15 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for the data model, ingestion pipeline,
 
 ### Prerequisites
 
-- Node.js (LTS — pin exact version once the project is scaffolded)
+- Node.js (v24.x recommended, see `.nvmrc`)
+- pnpm (v10+ or v12+)
 - Your own Snapchat data export, unzipped locally (Settings → My Data → Submit Request on snapchat.com)
 
 ### Setup
 
 ```bash
-npm install
-npm run dev
+pnpm install
+pnpm dev
 ```
 
 Open the app in your browser, then drag your **unzipped Snapchat export folder** (the one containing `html/`, `json/`, `memories/`, `index.html`) onto the drop zone.

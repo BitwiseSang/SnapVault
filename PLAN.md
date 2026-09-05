@@ -29,31 +29,35 @@ Each phase builds on the last and is independently committable. Phases 3–6 can
 ### Tasks
 
 - [ ] **0.1** Scaffold with Vite
+
   ```bash
   pnpm create vite@latest . -- --template react-ts
   ```
+
   Immediately replace the boilerplate content in `src/` with the directory structure from `ARCHITECTURE.md`. Delete placeholder files (`App.css`, `assets/react.svg`, etc.).
 
 - [ ] **0.2** Install core dependencies
+
   ```bash
   pnpm add dexie minisearch @tanstack/react-virtual react-router-dom
   pnpm add -D tailwindcss @tailwindcss/vite autoprefixer typescript eslint prettier eslint-plugin-react-hooks @typescript-eslint/eslint-plugin @typescript-eslint/parser
   ```
 
 - [ ] **0.3** Configure Tailwind CSS v4
-  Use the Vite plugin approach (`@tailwindcss/vite`). Set up a custom design token palette in CSS variables (see Design System section below). Configure `darkMode: 'class'`.
+      Use the Vite plugin approach (`@tailwindcss/vite`). Set up a custom design token palette in CSS variables (see Design System section below). Configure `darkMode: 'class'`.
 
 - [ ] **0.4** Configure TypeScript strict mode
+
   ```json
   // tsconfig.json
   { "compilerOptions": { "strict": true, "noUncheckedIndexedAccess": true } }
   ```
 
 - [ ] **0.5** ESLint + Prettier
-  Single flat config (`eslint.config.js`). Enforce no `any`, import ordering, React hooks rules. Prettier for formatting (tabs vs spaces: spaces, 2-width).
+      Single flat config (`eslint.config.js`). Enforce no `any`, import ordering, React hooks rules. Prettier for formatting (tabs vs spaces: spaces, 2-width).
 
 - [ ] **0.6** Update `README.md` setup instructions
-  Replace `npm install` / `npm run dev` with `pnpm install` / `pnpm dev`.
+      Replace `npm install` / `npm run dev` with `pnpm install` / `pnpm dev`.
 
 - [ ] **0.7** Create `pnpm-workspace.yaml` (single-package, but sets precedent for future monorepo if needed).
 
@@ -84,6 +88,7 @@ Each phase builds on the last and is independently committable. Phases 3–6 can
 ### 1.3 — Parsers (`src/parsers/`)
 
 One file per source JSON. Each parser takes raw `unknown` JSON and returns normalized `AppEvent[]`. All parsers must:
+
 - Type-narrow with runtime checks (not `as` casts) — throw a descriptive error if the shape is wrong.
 - Degrade gracefully on individual malformed entries (skip + log, don't throw).
 - Timestamp conversion: `"YYYY-MM-DD HH:MM:SS UTC"` → ISO 8601 string.
@@ -152,25 +157,27 @@ SnapVault should feel like a **modern, premium personal-data app** — clean, da
 
 **Color palette (CSS custom properties):**
 
-| Token | Light | Dark | Purpose |
-|---|---|---|---|
-| `--color-bg` | `#f9f9f9` | `#0f0f0f` | Page background |
-| `--color-surface` | `#ffffff` | `#1a1a1a` | Cards, panels |
-| `--color-surface-raised` | `#f0f0f0` | `#252525` | Hover states, sidebar items |
-| `--color-border` | `#e4e4e7` | `#2e2e2e` | Dividers |
-| `--color-text-primary` | `#09090b` | `#fafafa` | Body text |
-| `--color-text-secondary` | `#71717a` | `#a1a1aa` | Timestamps, metadata |
-| `--color-accent` | `#FFFC00` | `#FFFC00` | Snapchat yellow — used sparingly as a key accent |
-| `--color-accent-fg` | `#09090b` | `#09090b` | Text on accent backgrounds |
-| `--color-sent` | `#FFFC00` | `#FFFC00` | Sent message bubble |
-| `--color-received` | `#e4e4e7` | `#2e2e2e` | Received message bubble |
+| Token                    | Light     | Dark      | Purpose                                          |
+| ------------------------ | --------- | --------- | ------------------------------------------------ |
+| `--color-bg`             | `#f9f9f9` | `#0f0f0f` | Page background                                  |
+| `--color-surface`        | `#ffffff` | `#1a1a1a` | Cards, panels                                    |
+| `--color-surface-raised` | `#f0f0f0` | `#252525` | Hover states, sidebar items                      |
+| `--color-border`         | `#e4e4e7` | `#2e2e2e` | Dividers                                         |
+| `--color-text-primary`   | `#09090b` | `#fafafa` | Body text                                        |
+| `--color-text-secondary` | `#71717a` | `#a1a1aa` | Timestamps, metadata                             |
+| `--color-accent`         | `#FFFC00` | `#FFFC00` | Snapchat yellow — used sparingly as a key accent |
+| `--color-accent-fg`      | `#09090b` | `#09090b` | Text on accent backgrounds                       |
+| `--color-sent`           | `#FFFC00` | `#FFFC00` | Sent message bubble                              |
+| `--color-received`       | `#e4e4e7` | `#2e2e2e` | Received message bubble                          |
 
 **Typography:**
+
 - Font: **Inter** (variable, via `@fontsource/inter`) as the system font stack fallback.
 - Scale: `text-xs` (11px) → `text-sm` (13px) → `text-base` (15px) → `text-lg` (17px) → `text-2xl/3xl` for headings.
 - Letter-spacing: `-0.02em` on headings; normal on body.
 
 **Motion:**
+
 - Reduced-motion aware (`prefers-reduced-motion`). When motion is OK: `transition-all duration-150 ease-out` on interactive elements; `animate-fade-in` on view transitions.
 - No gratuitous animation — every motion must serve a purpose (direction, state change, hierarchy).
 
@@ -365,15 +372,15 @@ Two-column on wide viewports, single-column on mobile. Cards with subtle borders
 
 Every view needs a thoughtful empty state — not a blank white page.
 
-| View | Condition | Empty state |
-|---|---|---|
-| Import screen | First visit | Animated drop zone with instructional copy |
-| Contact list | No contacts found | "No conversations match your search" |
-| Conversation pane | No messages in thread | "No messages to show" with media type hint |
-| Memories gallery | No memories after filtering | "No memories match these filters" + clear button |
-| Stats | No data yet | "Import your Snapchat export to see your stats" |
-| Search | No results | "Nothing found for '{query}'" |
-| Search | Query too short | "Type at least 2 characters to search" |
+| View              | Condition                   | Empty state                                      |
+| ----------------- | --------------------------- | ------------------------------------------------ |
+| Import screen     | First visit                 | Animated drop zone with instructional copy       |
+| Contact list      | No contacts found           | "No conversations match your search"             |
+| Conversation pane | No messages in thread       | "No messages to show" with media type hint       |
+| Memories gallery  | No memories after filtering | "No memories match these filters" + clear button |
+| Stats             | No data yet                 | "Import your Snapchat export to see your stats"  |
+| Search            | No results                  | "Nothing found for '{query}'"                    |
+| Search            | Query too short             | "Type at least 2 characters to search"           |
 
 ### 7.2 — Error boundaries
 
@@ -433,6 +440,7 @@ pnpm add -D tailwindcss @tailwindcss/vite typescript eslint prettier \
 - **No E2E in v1** — the app is purely local and has no network layer to test against; unit + component coverage is sufficient.
 
 Run tests with:
+
 ```bash
 pnpm test          # watch mode
 pnpm test:run      # CI single-run
@@ -442,24 +450,24 @@ pnpm test:run      # CI single-run
 
 ## Commit cadence summary
 
-| Commit | Contents |
-|---|---|
-| `chore: scaffold Vite + React + TS + Tailwind + tooling` | Phase 0 |
-| `feat(data): ingest pipeline, parsers, Dexie schema, search index` | Phase 1 |
-| `feat(ui): app shell, design system, shared components` | Phase 2 |
-| `feat(views): chats view — contact list + conversation pane` | Phase 3 |
-| `feat(views): memories gallery — masonry grid + lightbox` | Phase 4 |
-| `feat(views): stats view — activity charts, most-contacted, call summary` | Phase 5 |
-| `feat(search): global search overlay + filter integration` | Phase 6 |
-| `feat(polish): empty states, error bounds, responsive layout, a11y` | Phase 7 |
+| Commit                                                                    | Contents |
+| ------------------------------------------------------------------------- | -------- |
+| `chore: scaffold Vite + React + TS + Tailwind + tooling`                  | Phase 0  |
+| `feat(data): ingest pipeline, parsers, Dexie schema, search index`        | Phase 1  |
+| `feat(ui): app shell, design system, shared components`                   | Phase 2  |
+| `feat(views): chats view — contact list + conversation pane`              | Phase 3  |
+| `feat(views): memories gallery — masonry grid + lightbox`                 | Phase 4  |
+| `feat(views): stats view — activity charts, most-contacted, call summary` | Phase 5  |
+| `feat(search): global search overlay + filter integration`                | Phase 6  |
+| `feat(polish): empty states, error bounds, responsive layout, a11y`       | Phase 7  |
 
 ---
 
 ## Design decisions — all resolved ✅
 
-| # | Decision | Choice |
-|---|---|---|
-| 1 | **Memories join strategy** | Files-drive; JSON is metadata-only. Files are primary source of truth. |
-| 2 | **Group chat display** | Folded into the contact list (keyed by `Conversation Title` when non-null). |
-| 3 | **Charting approach** | Hand-rolled SVG — `<BarChart>` and `<DonutChart>` in `src/components/charts/`. |
-| 4 | **Masonry layout** | JS-calculated positions (`top`/`left`) with `ResizeObserver`; viewport-intersect virtualization. |
+| #   | Decision                   | Choice                                                                                           |
+| --- | -------------------------- | ------------------------------------------------------------------------------------------------ |
+| 1   | **Memories join strategy** | Files-drive; JSON is metadata-only. Files are primary source of truth.                           |
+| 2   | **Group chat display**     | Folded into the contact list (keyed by `Conversation Title` when non-null).                      |
+| 3   | **Charting approach**      | Hand-rolled SVG — `<BarChart>` and `<DonutChart>` in `src/components/charts/`.                   |
+| 4   | **Masonry layout**         | JS-calculated positions (`top`/`left`) with `ResizeObserver`; viewport-intersect virtualization. |

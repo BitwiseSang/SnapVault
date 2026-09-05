@@ -1,0 +1,4 @@
+dist
+node_modules
+sample_data
+pnpm-lock.yaml
