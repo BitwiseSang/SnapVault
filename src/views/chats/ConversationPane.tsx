@@ -27,6 +27,29 @@ interface ConversationPaneProps {
 
 type FilterCategory = 'ALL' | 'TEXT' | 'MEDIA' | 'SAVED' | 'SNAPS'
 
+function formatDateSeparator(iso: string): string {
+  try {
+    const d = new Date(iso)
+    const now = new Date()
+    const dDate = new Date(d.getFullYear(), d.getMonth(), d.getDate())
+    const nowDate = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    const diffDays = Math.round((nowDate.getTime() - dDate.getTime()) / (1000 * 60 * 60 * 24))
+
+    if (diffDays === 0) return 'Today'
+    if (diffDays === 1) return 'Yesterday'
+
+    const isThisYear = d.getFullYear() === now.getFullYear()
+    return d.toLocaleDateString(undefined, {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      year: isThisYear ? undefined : 'numeric',
+    })
+  } catch {
+    return iso.slice(0, 10)
+  }
+}
+
 export function ConversationPane({
   contact,
   summary,
@@ -86,12 +109,13 @@ export function ConversationPane({
     return [...list].sort((a, b) => a.timestamp.localeCompare(b.timestamp))
   }, [events, filter, sortOrder])
 
-  // Virtualizer for high-performance rendering of thousands of messages
+  // Virtualizer for high-performance rendering of thousands of messages with dynamic measurement
   const virtualizer = useVirtualizer({
     count: filteredEvents.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 64,
-    overscan: 10,
+    estimateSize: () => 72,
+    overscan: 12,
+    getItemKey: (index) => filteredEvents[index]?.id ?? index,
   })
 
   // Auto-scroll to bottom on initial load if oldest_first
@@ -284,9 +308,18 @@ export function ConversationPane({
               const event = filteredEvents[virtualRow.index]
               if (!event) return null
 
+              const prevEvent =
+                virtualRow.index > 0 ? filteredEvents[virtualRow.index - 1] : undefined
+              const showDateSeparator =
+                virtualRow.index === 0 ||
+                (prevEvent !== undefined &&
+                  event.timestamp.slice(0, 10) !== prevEvent.timestamp.slice(0, 10))
+
               return (
                 <div
                   key={virtualRow.key}
+                  data-index={virtualRow.index}
+                  ref={virtualizer.measureElement}
                   style={{
                     position: 'absolute',
                     top: 0,
@@ -295,6 +328,13 @@ export function ConversationPane({
                     transform: `translateY(${virtualRow.start}px)`,
                   }}
                 >
+                  {showDateSeparator && (
+                    <div className="flex justify-center my-3 select-none">
+                      <span className="px-3 py-1 rounded-full text-[11px] font-semibold bg-surface-raised border border-border text-text-secondary shadow-2xs">
+                        {formatDateSeparator(event.timestamp)}
+                      </span>
+                    </div>
+                  )}
                   <MessageBubble event={event} showSenderName={isAllStream || summary?.isGroup} />
                 </div>
               )

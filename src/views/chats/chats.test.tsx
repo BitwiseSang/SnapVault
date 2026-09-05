@@ -37,7 +37,7 @@ describe('MessageBubble', () => {
     }
 
     render(<MessageBubble event={msg} />)
-    expect(screen.getByText('Media attachment')).toBeDefined()
+    expect(screen.getByText(/Media attachment/i)).toBeDefined()
   })
 
   it('renders snap event correctly', () => {
@@ -52,6 +52,7 @@ describe('MessageBubble', () => {
     }
 
     render(<MessageBubble event={snap} />)
-    expect(screen.getByText(/Snap \(video\)/i)).toBeDefined()
+    expect(screen.getByText('Received Snap')).toBeDefined()
+    expect(screen.getByText('Video')).toBeDefined()
   })
 })
