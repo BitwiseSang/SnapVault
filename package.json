@@ -2,12 +2,15 @@
   "name": "snapvault",
   "private": true,
   "version": "0.1.0",
+  "packageManager": "pnpm@12.3.4",
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "typecheck": "tsc -b",
     "preview": "vite preview",
     "test": "vitest",
     "test:run": "vitest run"
