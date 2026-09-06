@@ -55,4 +55,59 @@ describe('MessageBubble', () => {
     expect(screen.getByText('Received Snap')).toBeDefined()
     expect(screen.getByText('Video')).toBeDefined()
   })
+
+  it('renders recipient label for sent messages when showSenderName is true', () => {
+    const msg: MessageEvent = {
+      id: 'msg_3',
+      type: 'message',
+      timestamp: '2026-09-05T12:00:00.000Z',
+      contact: 'dave',
+      direction: 'sent',
+      mediaType: 'TEXT',
+      content: 'Hey Dave!',
+      isSaved: false,
+      mediaIds: '',
+      conversationTitle: null,
+    }
+
+    render(<MessageBubble event={msg} showSenderName={true} />)
+    expect(screen.getByText('To: @dave')).toBeDefined()
+  })
+
+  it('renders sender label for received messages when showSenderName is true', () => {
+    const msg: MessageEvent = {
+      id: 'msg_4',
+      type: 'message',
+      timestamp: '2026-09-05T12:00:00.000Z',
+      contact: 'sarah',
+      direction: 'received',
+      mediaType: 'TEXT',
+      content: 'Hey back!',
+      isSaved: false,
+      mediaIds: '',
+      conversationTitle: null,
+    }
+
+    render(<MessageBubble event={msg} showSenderName={true} />)
+    expect(screen.getByText('@sarah')).toBeDefined()
+  })
+
+  it('applies highlight ring when isHighlighted is true', () => {
+    const msg: MessageEvent = {
+      id: 'msg_5',
+      type: 'message',
+      timestamp: '2026-09-05T12:00:00.000Z',
+      contact: 'sarah',
+      direction: 'received',
+      mediaType: 'TEXT',
+      content: 'Highlighted message',
+      isSaved: false,
+      mediaIds: '',
+      conversationTitle: null,
+    }
+
+    const { container } = render(<MessageBubble event={msg} isHighlighted={true} />)
+    const bubble = container.querySelector('.ring-accent')
+    expect(bubble).not.toBeNull()
+  })
 })
