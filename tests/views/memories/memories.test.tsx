@@ -4,6 +4,14 @@ import { MemoryCard } from '../../../src/views/memories/MemoryCard'
 import { MediaLightbox } from '../../../src/views/memories/MediaLightbox'
 import { MemoryEvent } from '../../../src/models/events'
 
+vi.mock('../../../src/db/mediaUrl', () => ({
+  useMediaUrl: (path?: string) => ({
+    url: path ? `blob:http://localhost/${path}` : null,
+    isLoading: false,
+  }),
+  getCachedMediaUrl: vi.fn().mockResolvedValue(null),
+}))
+
 type ObserverCallback = (
   entries: IntersectionObserverEntry[],
   observer: IntersectionObserver,

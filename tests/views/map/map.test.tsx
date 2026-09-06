@@ -13,6 +13,14 @@ vi.mock('../../../src/db/db', () => ({
   getMediaBlob: vi.fn().mockResolvedValue(null),
 }))
 
+vi.mock('../../../src/db/mediaUrl', () => ({
+  useMediaUrl: (path?: string) => ({
+    url: path ? `blob:http://localhost/${path}` : null,
+    isLoading: false,
+  }),
+  getCachedMediaUrl: vi.fn().mockResolvedValue(null),
+}))
+
 vi.mock('../../../src/app/AppContext', () => ({
   useApp: () => ({ theme: 'dark' }),
 }))
