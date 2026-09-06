@@ -1,9 +1,9 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest'
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { MapMemoryCard } from '../../../src/views/map/MapMemoryCard'
 import { ClusterExpansionCard } from '../../../src/views/map/ClusterExpansionCard'
 import { MapHoverPreview } from '../../../src/views/map/MapHoverPreview'
-import { MapView } from '../../../src/views/map/MapView'
+import { MapView, getCartoTileUrl } from '../../../src/views/map/MapView'
 import { GeoMemoryEvent, GeoCluster } from '../../../src/utils/geo'
 import { getGeoMemories } from '../../../src/db/db'
 import L from 'leaflet'
@@ -212,6 +212,10 @@ describe('MapView', () => {
     )
   })
 
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
   it('renders empty state when no memories have location data', async () => {
     vi.mocked(getGeoMemories).mockResolvedValue([])
 
@@ -409,7 +413,8 @@ describe('MapView', () => {
     expect(screen.getByText('1 / 2')).toBeDefined()
   })
 
-  it('appends api key to tile layer URL when VITE_CARTO_API_KEY is configured', async () => {
+  it('appends api key to tile layer URL when CARTO_API_KEY is configured', async () => {
+    vi.stubEnv('CARTO_API_KEY', 'test_carto_key_999')
     const tileLayerSpy = vi.spyOn(L, 'tileLayer')
 
     vi.mocked(getGeoMemories).mockResolvedValue([])
@@ -417,6 +422,55 @@ describe('MapView', () => {
     render(<MapView />)
 
     expect(await screen.findByText('No Location Data Found')).toBeDefined()
-    expect(tileLayerSpy).toHaveBeenCalledWith(expect.stringMatching(/key=/), expect.any(Object))
+    expect(tileLayerSpy).toHaveBeenCalledWith(
+      expect.stringMatching(/\?key=test_carto_key_999/),
+      expect.any(Object),
+    )
+  })
+
+  it('appends api key to tile layer URL when VITE_CARTO_API_KEY is configured', async () => {
+    vi.stubEnv('CARTO_API_KEY', '')
+    vi.stubEnv('VITE_CARTO_API_KEY', 'vite_test_key_888')
+    const tileLayerSpy = vi.spyOn(L, 'tileLayer')
+
+    vi.mocked(getGeoMemories).mockResolvedValue([])
+
+    render(<MapView />)
+
+    expect(await screen.findByText('No Location Data Found')).toBeDefined()
+    expect(tileLayerSpy).toHaveBeenCalledWith(
+      expect.stringMatching(/\?key=vite_test_key_888/),
+      expect.any(Object),
+    )
+  })
+
+  it('renders tile layer URL without key query when no API key is configured', async () => {
+    vi.stubEnv('CARTO_API_KEY', '')
+    vi.stubEnv('VITE_CARTO_API_KEY', '')
+    const tileLayerSpy = vi.spyOn(L, 'tileLayer')
+
+    vi.mocked(getGeoMemories).mockResolvedValue([])
+
+    render(<MapView />)
+
+    expect(await screen.findByText('No Location Data Found')).toBeDefined()
+    expect(tileLayerSpy).toHaveBeenCalledWith(
+      'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+      expect.any(Object),
+    )
+  })
+})
+
+describe('getCartoTileUrl', () => {
+  it('generates tile URLs with and without key correctly', () => {
+    expect(getCartoTileUrl('dark', 'custom_key')).toBe(
+      'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png?key=custom_key',
+    )
+    expect(getCartoTileUrl('light', 'custom_key')).toBe(
+      'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png?key=custom_key',
+    )
+    expect(getCartoTileUrl('dark', '')).toBe(
+      'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+    )
   })
 })

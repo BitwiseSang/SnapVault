@@ -24,32 +24,27 @@ import { useMediaUrl } from '../../db/mediaUrl'
 
 type MediaTypeFilter = 'ALL' | 'IMAGE' | 'VIDEO'
 
-function getCartoTileUrl(variant: 'dark' | 'light'): string {
-  const apiKey = (
+export function getCartoTileUrl(variant: 'dark' | 'light', customApiKey?: string): string {
+  const envKey =
     import.meta.env.CARTO_API_KEY ||
+    import.meta.env.VITE_CARTO_API_KEY ||
     (import.meta.env as Record<string, string | undefined>).CARTO_API_KEY ||
+    (import.meta.env as Record<string, string | undefined>).VITE_CARTO_API_KEY ||
     ''
-  ).trim()
+  const apiKey = (customApiKey ?? envKey).trim()
   const path = variant === 'dark' ? 'dark_all' : 'rastertiles/voyager'
   const keyQuery = apiKey ? `?key=${encodeURIComponent(apiKey)}` : ''
   return `https://{s}.basemaps.cartocdn.com/${path}/{z}/{x}/{y}{r}.png${keyQuery}`
 }
 
-const TILE_LAYERS = {
-  dark: {
-    url: getCartoTileUrl('dark'),
+export function getCartoTileLayerConfig(variant: 'dark' | 'light', customApiKey?: string) {
+  return {
+    url: getCartoTileUrl(variant, customApiKey),
     attribution:
       '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
     subdomains: 'abcd',
     maxZoom: 19,
-  },
-  light: {
-    url: getCartoTileUrl('light'),
-    attribution:
-      '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
-    subdomains: 'abcd',
-    maxZoom: 19,
-  },
+  }
 }
 
 function TrayThumbnail({
@@ -230,7 +225,7 @@ export function MapView() {
     // Custom zoom control position (bottom-right)
     L.control.zoom({ position: 'bottomright' }).addTo(map)
 
-    const cfg = TILE_LAYERS[initialTileModeRef.current]
+    const cfg = getCartoTileLayerConfig(initialTileModeRef.current)
     const tileLayer = L.tileLayer(cfg.url, {
       attribution: cfg.attribution,
       subdomains: cfg.subdomains,
@@ -277,7 +272,7 @@ export function MapView() {
   // Update tile layer when activeTileMode changes
   useEffect(() => {
     if (!tileLayerRef.current) return
-    const cfg = TILE_LAYERS[activeTileMode]
+    const cfg = getCartoTileLayerConfig(activeTileMode)
     tileLayerRef.current.setUrl(cfg.url)
   }, [activeTileMode])
 
