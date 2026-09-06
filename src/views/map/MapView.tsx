@@ -7,17 +7,18 @@ import {
   Video as VideoIcon,
   Maximize2,
   Layers,
-  ChevronDown,
-  ChevronUp,
+  Images as GalleryIcon,
 } from 'lucide-react'
 import { getGeoMemories } from '../../db/db'
-import { GeoMemoryEvent, clusterGeoMemories, calculateBounds } from '../../utils/geo'
+import { GeoMemoryEvent, GeoCluster, clusterGeoMemories, calculateBounds } from '../../utils/geo'
 import { Badge } from '../../components/Badge'
 import { IconButton } from '../../components/IconButton'
 import { Spinner } from '../../components/Spinner'
 import { EmptyState } from '../../components/EmptyState'
 import { useApp } from '../../app/AppContext'
 import { MapMemoryCard } from './MapMemoryCard'
+import { ClusterExpansionCard } from './ClusterExpansionCard'
+import { MapHoverPreview } from './MapHoverPreview'
 import { MediaLightbox } from '../memories/MediaLightbox'
 import { useMediaUrl } from '../../db/mediaUrl'
 
@@ -121,6 +122,17 @@ export function MapView() {
   const [typeFilter, setTypeFilter] = useState<MediaTypeFilter>('ALL')
   const [selectedYear, setSelectedYear] = useState<string>('ALL')
   const [selectedMemory, setSelectedMemory] = useState<GeoMemoryEvent | null>(null)
+  const [expandedCluster, setExpandedCluster] = useState<GeoCluster | null>(null)
+  const [hoveredData, setHoveredData] = useState<{
+    memory?: GeoMemoryEvent
+    cluster?: GeoCluster
+    x: number
+    y: number
+  } | null>(null)
+  const [containerSize, setContainerSize] = useState<{ width: number; height: number }>({
+    width: 800,
+    height: 600,
+  })
   const [activeLightboxIndex, setActiveLightboxIndex] = useState<number | null>(null)
   const [isTrayOpen, setIsTrayOpen] = useState(false)
   const [currentZoom, setCurrentZoom] = useState<number>(3)
@@ -134,6 +146,15 @@ export function MapView() {
   const markersLayerRef = useRef<L.LayerGroup | null>(null)
   const hasInitiallyFittedRef = useRef<boolean>(false)
   const initialTileModeRef = useRef<'dark' | 'light'>(theme === 'light' ? 'light' : 'dark')
+  const hoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const cancelHover = useCallback(() => {
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current)
+      hoverTimeoutRef.current = null
+    }
+    setHoveredData(null)
+  }, [])
 
   // Fetch memories with valid coordinates
   useEffect(() => {
@@ -221,24 +242,36 @@ export function MapView() {
       setCurrentZoom(map.getZoom())
     })
 
+    map.on('movestart zoomstart click', () => {
+      cancelHover()
+    })
+
     mapRef.current = map
     tileLayerRef.current = tileLayer
     markersLayerRef.current = markersLayer
 
     // Resize observer to handle container size changes cleanly
-    const ro = new ResizeObserver(() => {
+    const ro = new ResizeObserver((entries) => {
       map.invalidateSize()
+      const entry = entries[0]
+      if (entry) {
+        setContainerSize({
+          width: entry.contentRect.width,
+          height: entry.contentRect.height,
+        })
+      }
     })
     ro.observe(mapContainerRef.current)
 
     return () => {
+      cancelHover()
       ro.disconnect()
       map.remove()
       mapRef.current = null
       tileLayerRef.current = null
       markersLayerRef.current = null
     }
-  }, [])
+  }, [cancelHover])
 
   // Update tile layer when activeTileMode changes
   useEffect(() => {
@@ -274,7 +307,7 @@ export function MapView() {
     }
   }, [filteredMemories, handleFitAll])
 
-  // Render markers and clusters
+  // Render markers and clusters (re-runs when clusters or selectedMemory changes)
   useEffect(() => {
     const layer = markersLayerRef.current
     if (!layer || !mapRef.current) return
@@ -284,79 +317,158 @@ export function MapView() {
     for (const cluster of clusters) {
       if (cluster.isCluster) {
         const count = cluster.items.length
+        const isClusterSelected = Boolean(
+          selectedMemory && cluster.items.some((m) => m.id === selectedMemory.id),
+        )
+        const isClusterExpanded = expandedCluster?.id === cluster.id
         const badgeClass =
           count > 99 ? 'w-10 h-10 text-xs' : count > 9 ? 'w-9 h-9 text-xs' : 'w-8 h-8 text-xs'
 
-        const clusterIcon = L.divIcon({
-          className: 'snap-map-cluster-marker',
-          html: `
-            <div class="relative flex items-center justify-center cursor-pointer group select-none">
-              <div class="absolute inset-0 rounded-full bg-[#FFFC00]/35 animate-ping opacity-60"></div>
-              <div class="${badgeClass} rounded-full bg-[#FFFC00] text-black font-black flex items-center justify-center shadow-lg border-2 border-[#121212] group-hover:scale-115 transition-transform duration-150">
-                ${count}
+        let clusterIcon: L.DivIcon
+        if (isClusterSelected || isClusterExpanded) {
+          clusterIcon = L.divIcon({
+            className: 'snap-map-cluster-marker-selected',
+            html: `
+              <div class="relative flex items-center justify-center cursor-pointer select-none">
+                <div class="absolute -inset-1.5 rounded-full ring-4 ring-white shadow-2xl bg-white/25"></div>
+                <div class="${badgeClass} rounded-full bg-[#FFFC00] text-black font-black flex items-center justify-center shadow-2xl border-2 border-black scale-110">
+                  ${count}
+                </div>
               </div>
-            </div>
-          `,
-          iconSize: [40, 40],
-          iconAnchor: [20, 20],
-        })
+            `,
+            iconSize: [44, 44],
+            iconAnchor: [22, 22],
+          })
+        } else {
+          clusterIcon = L.divIcon({
+            className: 'snap-map-cluster-marker',
+            html: `
+              <div class="relative flex items-center justify-center cursor-pointer group select-none">
+                <div class="${badgeClass} rounded-full bg-[#FFFC00] text-black font-black flex items-center justify-center shadow-lg border-2 border-[#121212] group-hover:scale-115 transition-transform duration-150">
+                  ${count}
+                </div>
+              </div>
+            `,
+            iconSize: [40, 40],
+            iconAnchor: [20, 20],
+          })
+        }
 
         const marker = L.marker([cluster.center.lat, cluster.center.lng], {
           icon: clusterIcon,
+          zIndexOffset: isClusterSelected || isClusterExpanded ? 1000 : 0,
         })
 
+        // Click to expand the cluster and view all memories
         marker.on('click', () => {
+          cancelHover()
+          setExpandedCluster(cluster)
+          setSelectedMemory(cluster.items[0] ?? null)
           if (mapRef.current) {
-            const nextZoom = Math.min(mapRef.current.getZoom() + 2, 18)
-            mapRef.current.flyTo([cluster.center.lat, cluster.center.lng], nextZoom, {
-              duration: 0.5,
-            })
+            mapRef.current.panTo([cluster.center.lat, cluster.center.lng])
           }
-          if (cluster.items[0]) {
-            setSelectedMemory(cluster.items[0])
+        })
+
+        // Debounced hover preview (300ms delay)
+        marker.on('mouseover', () => {
+          if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current)
+          hoverTimeoutRef.current = setTimeout(() => {
+            if (!mapRef.current) return
+            const pt = mapRef.current.latLngToContainerPoint([
+              cluster.center.lat,
+              cluster.center.lng,
+            ])
+            setHoveredData({ cluster, x: pt.x, y: pt.y })
+          }, 300)
+        })
+
+        marker.on('mouseout', () => {
+          if (hoverTimeoutRef.current) {
+            clearTimeout(hoverTimeoutRef.current)
+            hoverTimeoutRef.current = null
           }
+          setHoveredData(null)
         })
 
         marker.addTo(layer)
       } else {
         const item = cluster.items[0]!
-        const isVideo = item.mediaKind === 'Video'
-        const svgIcon = isVideo
-          ? `<svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="6 4 20 12 6 20 6 4"></polygon></svg>`
-          : `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>`
+        const isSelected = selectedMemory?.id === item.id
 
-        const singleIcon = L.divIcon({
-          className: 'snap-map-single-marker',
-          html: `
-            <div class="relative flex items-center justify-center cursor-pointer group select-none">
-              <div class="w-8 h-8 rounded-full bg-[#FFFC00] text-black flex items-center justify-center shadow-lg border-2 border-[#121212] group-hover:scale-120 transition-transform duration-150">
-                ${svgIcon}
+        let singleIcon: L.DivIcon
+        if (isSelected) {
+          singleIcon = L.divIcon({
+            className: 'snap-map-single-marker-selected',
+            html: `
+              <div class="relative flex items-center justify-center cursor-pointer select-none">
+                <div class="absolute -inset-2 rounded-full ring-4 ring-white shadow-2xl bg-white/30"></div>
+                <div class="w-6 h-6 rounded-full bg-[#FFFC00] border-2 border-black shadow-xl scale-110"></div>
               </div>
-            </div>
-          `,
-          iconSize: [32, 32],
-          iconAnchor: [16, 16],
-        })
+            `,
+            iconSize: [36, 36],
+            iconAnchor: [18, 18],
+          })
+        } else {
+          // Clean yellow circle without pulsating effect
+          singleIcon = L.divIcon({
+            className: 'snap-map-single-marker',
+            html: `
+              <div class="relative flex items-center justify-center cursor-pointer select-none group">
+                <div class="w-5 h-5 rounded-full bg-[#FFFC00] border-2 border-[#121212] shadow-md group-hover:scale-125 transition-transform duration-150"></div>
+              </div>
+            `,
+            iconSize: [24, 24],
+            iconAnchor: [12, 12],
+          })
+        }
 
         const marker = L.marker([item.coordinates.lat, item.coordinates.lng], {
           icon: singleIcon,
+          zIndexOffset: isSelected ? 1000 : 0,
         })
 
         marker.on('click', () => {
+          cancelHover()
+          setExpandedCluster(null)
           setSelectedMemory(item)
           if (mapRef.current) {
             mapRef.current.panTo([item.coordinates.lat, item.coordinates.lng])
           }
         })
 
+        // Debounced hover preview (300ms delay)
+        marker.on('mouseover', () => {
+          if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current)
+          hoverTimeoutRef.current = setTimeout(() => {
+            if (!mapRef.current) return
+            const pt = mapRef.current.latLngToContainerPoint([
+              item.coordinates.lat,
+              item.coordinates.lng,
+            ])
+            setHoveredData({ memory: item, x: pt.x, y: pt.y })
+          }, 300)
+        })
+
+        marker.on('mouseout', () => {
+          if (hoverTimeoutRef.current) {
+            clearTimeout(hoverTimeoutRef.current)
+            hoverTimeoutRef.current = null
+          }
+          setHoveredData(null)
+        })
+
         marker.addTo(layer)
       }
     }
-  }, [clusters])
+  }, [clusters, selectedMemory, expandedCluster?.id, cancelHover])
 
-  // Select memory and pan
+  // Select memory and pan (called from tray or cluster list)
   const handleSelectMemory = (memory: GeoMemoryEvent) => {
+    cancelHover()
     setSelectedMemory(memory)
+    if (expandedCluster && !expandedCluster.items.some((m) => m.id === memory.id)) {
+      setExpandedCluster(null)
+    }
     if (mapRef.current) {
       mapRef.current.flyTo([memory.coordinates.lat, memory.coordinates.lng], 15, {
         duration: 0.6,
@@ -364,10 +476,20 @@ export function MapView() {
     }
   }
 
+  const handleZoomCluster = (cluster: GeoCluster) => {
+    if (mapRef.current) {
+      const nextZoom = Math.min(mapRef.current.getZoom() + 2, 18)
+      mapRef.current.flyTo([cluster.center.lat, cluster.center.lng], nextZoom, {
+        duration: 0.5,
+      })
+    }
+  }
+
   // Open lightbox
-  const handleOpenLightbox = () => {
-    if (!selectedMemory) return
-    const idx = filteredMemories.findIndex((m) => m.id === selectedMemory.id)
+  const handleOpenLightbox = (memoryToOpen?: GeoMemoryEvent) => {
+    const target = memoryToOpen ?? selectedMemory
+    if (!target) return
+    const idx = filteredMemories.findIndex((m) => m.id === target.id)
     setActiveLightboxIndex(idx >= 0 ? idx : 0)
   }
 
@@ -482,18 +604,14 @@ export function MapView() {
             <Layers className="w-3.5 h-3.5" />
           </IconButton>
 
-          {/* Toggle Drawer button */}
+          {/* Toggle Memory Gallery Tray */}
           <IconButton
-            label={isTrayOpen ? 'Hide memory tray' : 'Show memory tray'}
+            label={isTrayOpen ? 'Hide memories gallery tray' : 'Show memories gallery tray'}
             size="sm"
             variant={isTrayOpen ? 'accent' : 'secondary'}
             onClick={() => setIsTrayOpen((v) => !v)}
           >
-            {isTrayOpen ? (
-              <ChevronDown className="w-3.5 h-3.5" />
-            ) : (
-              <ChevronUp className="w-3.5 h-3.5" />
-            )}
+            <GalleryIcon className="w-3.5 h-3.5" />
           </IconButton>
         </div>
       </div>
@@ -521,15 +639,46 @@ export function MapView() {
           </div>
         )}
 
-        {/* Selected Memory Preview Card (Floating overlay) */}
-        {selectedMemory && (
+        {/* Expanded Cluster Card (Floating overlay when a cluster node is clicked) */}
+        {expandedCluster && (
+          <div className="absolute top-4 left-4 z-20 pointer-events-none max-w-[calc(100vw-2rem)]">
+            <ClusterExpansionCard
+              cluster={expandedCluster}
+              selectedMemoryId={selectedMemory?.id ?? null}
+              onSelectMemory={(m) => {
+                setSelectedMemory(m)
+                if (mapRef.current) {
+                  mapRef.current.panTo([m.coordinates.lat, m.coordinates.lng])
+                }
+              }}
+              onOpenLightbox={(m) => handleOpenLightbox(m)}
+              onZoomIn={() => handleZoomCluster(expandedCluster)}
+              onClose={() => setExpandedCluster(null)}
+            />
+          </div>
+        )}
+
+        {/* Selected Single Memory Preview Card (Floating overlay when a single marker is selected) */}
+        {!expandedCluster && selectedMemory && (
           <div className="absolute top-4 left-4 z-20 pointer-events-none max-w-[calc(100vw-2rem)]">
             <MapMemoryCard
               memory={selectedMemory}
-              onOpenLightbox={handleOpenLightbox}
+              onOpenLightbox={() => handleOpenLightbox(selectedMemory)}
               onClose={() => setSelectedMemory(null)}
             />
           </div>
+        )}
+
+        {/* Hover preview tooltip (debounced 300ms, non-blocking) */}
+        {hoveredData && activeLightboxIndex === null && (
+          <MapHoverPreview
+            memory={hoveredData.memory}
+            cluster={hoveredData.cluster}
+            x={hoveredData.x}
+            y={hoveredData.y}
+            containerWidth={containerSize.width}
+            containerHeight={containerSize.height}
+          />
         )}
 
         {/* Empty filter message */}
