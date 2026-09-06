@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { BarChart } from '../../../src/components/charts/BarChart'
 import { DonutChart } from '../../../src/components/charts/DonutChart'
 
@@ -27,6 +27,24 @@ describe('BarChart', () => {
 
     const primaryRect = container.querySelector('rect[fill="var(--color-sent)"]')
     expect(primaryRect).not.toBeNull()
+  })
+
+  it('displays tooltip when hovering anywhere in the column hit area', () => {
+    const data = [{ label: 'Jan', value: 2, subValue: 1 }]
+    const { container } = render(<BarChart data={data} primaryLabel="Sent" subLabel="Received" />)
+
+    const hitTarget = container.querySelector('rect[style*="pointer-events: all"]')
+    expect(hitTarget).not.toBeNull()
+
+    const columnGroup = hitTarget?.closest('g')
+    expect(columnGroup).not.toBeNull()
+
+    fireEvent.mouseEnter(columnGroup!)
+    expect(screen.getByText(/2 sent/i)).toBeDefined()
+    expect(screen.getByText(/\+ 1 received/i)).toBeDefined()
+
+    fireEvent.mouseLeave(columnGroup!)
+    expect(screen.queryByText(/2 sent/i)).toBeNull()
   })
 })
 

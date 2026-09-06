@@ -99,18 +99,18 @@ export function BarChart({
               onMouseLeave={() => setHoveredIndex(null)}
               className="cursor-pointer"
             >
-              {/* Highlight background column on hover */}
-              {isHovered && (
-                <rect
-                  x={x - gap / 2}
-                  y={10}
-                  width={barWidth + gap}
-                  height={chartHeight}
-                  fill="var(--color-surface-raised)"
-                  opacity={0.5}
-                  rx={6}
-                />
-              )}
+              {/* Full-height hit target & hover column highlight */}
+              <rect
+                x={x - gap / 2}
+                y={6}
+                width={barWidth + gap}
+                height={chartHeight}
+                fill="var(--color-surface-raised)"
+                opacity={isHovered ? 0.5 : 0}
+                style={{ pointerEvents: 'all' }}
+                rx={6}
+                className="transition-opacity duration-150"
+              />
 
               {/* Sub value bar (bottom or stacked) */}
               {subH > 0 && (

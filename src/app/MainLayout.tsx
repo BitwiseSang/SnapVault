@@ -115,9 +115,6 @@ export function MainLayout() {
             </div>
             <div>
               <span className="font-bold text-sm tracking-tight block">SnapVault</span>
-              <span className="text-[10px] text-text-secondary font-mono -mt-1 block">
-                Local Archive
-              </span>
             </div>
           </div>
 
