@@ -111,4 +111,28 @@ describe('MapView', () => {
     expect(screen.getByText('Photos')).toBeDefined()
     expect(screen.getByText('Videos')).toBeDefined()
   })
+
+  it('renders video element for video memories in the memory tray', async () => {
+    vi.mocked(getGeoMemories).mockResolvedValue([
+      {
+        id: 'mem_video_1',
+        type: 'memory',
+        timestamp: '2026-08-20T14:00:00.000Z',
+        mediaFile: 'memories/sample_video.mp4',
+        mediaKind: 'Video',
+        location: 'Latitude, Longitude: -1.286, 36.817',
+        coordinates: { lat: -1.286, lng: 36.817 },
+      },
+    ])
+
+    render(<MapView />)
+    expect(await screen.findByText('Snap Map')).toBeDefined()
+
+    // Open tray
+    const toggleButton = screen.getByLabelText('Show memory tray')
+    fireEvent.click(toggleButton)
+
+    // Verify tray is open
+    expect(screen.getByText('Located Memories (1)')).toBeDefined()
+  })
 })

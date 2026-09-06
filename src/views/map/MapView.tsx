@@ -50,6 +50,7 @@ function TrayThumbnail({
   onClick: () => void
 }) {
   const { url } = useMediaUrl(memory.mediaFile)
+  const { url: overlayUrl } = useMediaUrl(memory.overlayFile)
   const isVideo = memory.mediaKind === 'Video'
 
   return (
@@ -62,12 +63,31 @@ function TrayThumbnail({
       }`}
     >
       {url ? (
-        <img
-          src={url}
-          alt="Snap thumbnail"
-          loading="lazy"
-          className="w-full h-full object-cover pointer-events-none"
-        />
+        <>
+          {isVideo ? (
+            <video
+              src={`${url}#t=0.001`}
+              preload="metadata"
+              muted
+              playsInline
+              className="w-full h-full object-cover pointer-events-none"
+            />
+          ) : (
+            <img
+              src={url}
+              alt="Snap thumbnail"
+              loading="lazy"
+              className="w-full h-full object-cover pointer-events-none"
+            />
+          )}
+          {overlayUrl && (
+            <img
+              src={overlayUrl}
+              alt="Overlay"
+              className="absolute inset-0 w-full h-full object-cover pointer-events-none z-10"
+            />
+          )}
+        </>
       ) : (
         <div className="w-full h-full flex items-center justify-center text-text-secondary">
           {isVideo ? <VideoIcon className="w-4 h-4" /> : <ImageIcon className="w-4 h-4" />}
@@ -75,7 +95,7 @@ function TrayThumbnail({
       )}
 
       {isVideo && (
-        <div className="absolute top-1 right-1 p-0.5 rounded-full bg-black/60 text-white">
+        <div className="absolute top-1 right-1 p-0.5 rounded-full bg-black/60 text-white z-20">
           <VideoIcon className="w-2.5 h-2.5" />
         </div>
       )}
@@ -361,29 +381,6 @@ export function MapView() {
   const activeLightboxMemory =
     activeLightboxIndex !== null ? (filteredMemories[activeLightboxIndex] ?? null) : null
 
-  // Loading state
-  if (isLoading) {
-    return (
-      <div className="flex-1 flex flex-col items-center justify-center gap-3 text-xs text-text-secondary h-full bg-bg">
-        <Spinner size="lg" />
-        <span>Loading Snap Map...</span>
-      </div>
-    )
-  }
-
-  // Zero memories with GPS in the entire archive
-  if (memories.length === 0) {
-    return (
-      <div className="flex-1 flex items-center justify-center p-6 h-full bg-bg">
-        <EmptyState
-          icon={<MapPin className="w-8 h-8 text-accent" />}
-          title="No Location Data Found"
-          description="None of your saved memories contain GPS coordinates. Snapchat exports only include location metadata when location services were turned on when saving the snap."
-        />
-      </div>
-    )
-  }
-
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden bg-bg relative">
       {/* Top Controls Bar */}
@@ -491,8 +488,27 @@ export function MapView() {
       </div>
 
       {/* Map Container */}
-      <div className="flex-1 w-full h-full relative isolate">
+      <div className="flex-1 min-h-0 w-full h-full relative isolate">
         <div ref={mapContainerRef} className="w-full h-full z-0" />
+
+        {/* Loading overlay */}
+        {isLoading && (
+          <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-3 text-xs text-text-secondary bg-bg">
+            <Spinner size="lg" />
+            <span>Loading Snap Map...</span>
+          </div>
+        )}
+
+        {/* Zero memories with GPS in the entire archive */}
+        {!isLoading && memories.length === 0 && (
+          <div className="absolute inset-0 z-30 flex items-center justify-center p-6 bg-bg">
+            <EmptyState
+              icon={<MapPin className="w-8 h-8 text-accent" />}
+              title="No Location Data Found"
+              description="None of your saved memories contain GPS coordinates. Snapchat exports only include location metadata when location services were turned on when saving the snap."
+            />
+          </div>
+        )}
 
         {/* Selected Memory Preview Card (Floating overlay) */}
         {selectedMemory && (
@@ -506,7 +522,7 @@ export function MapView() {
         )}
 
         {/* Empty filter message */}
-        {filteredMemories.length === 0 && (
+        {!isLoading && memories.length > 0 && filteredMemories.length === 0 && (
           <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/40 backdrop-blur-xs pointer-events-auto">
             <div className="p-6 bg-surface border border-border rounded-2xl shadow-xl flex flex-col items-center gap-3 text-center max-w-sm">
               <MapPin className="w-8 h-8 text-accent" />
