@@ -439,7 +439,7 @@ Every view needs a thoughtful empty state — not a blank white page.
 - [x] **`parseCoordinates(locationStr)`**: Parses `"Latitude, Longitude: lat, lng"`, checks coordinate boundaries (`[-90, 90]` lat, `[-180, 180]` lng), and filters out Snapchat's unset default `(0.0, 0.0)`.
 - [x] **`clusterGeoMemories(memories, zoom)`**: Client-side grid clustering engine grouping neighboring memories based on dynamic map zoom level.
 - [x] **`formatCoordinates(lat, lng)`**: Converts raw decimal degrees to formatted compass coordinates (e.g. `0.5560° N, 35.2450° E`).
-- [x] **Unit tests (`src/utils/geo.test.ts`)**: 100% test coverage for parsing, boundary validation, invalid formats, and clustering behavior across zoom levels.
+- [x] **Unit tests (`tests/utils/geo.test.ts`)**: 100% test coverage for parsing, boundary validation, invalid formats, and clustering behavior across zoom levels.
 
 ### 8.2 — Database & Hook Integration (`src/db/db.ts`)
 
@@ -501,8 +501,8 @@ pnpm add -D tailwindcss @tailwindcss/vite typescript eslint prettier \
 
 ## Testing strategy
 
-- **Unit tests (Vitest):** All parsers, the search index builder, the memories join logic, the Dexie import function (with an in-memory Dexie mock), geodata coordinate parser and clustering algorithms (`src/utils/geo.test.ts`).
-- **Component tests:** `<ImportScreen>` drop zone, `<MessageBubble>` content/null handling, `<MemoryCard>` overlay compositing, `<MapView>` Leaflet controls, cluster cards, and filter toggles (`src/views/map/map.test.tsx`).
+- **Unit tests (Vitest):** All parsers, the search index builder, the memories join logic, the Dexie import function (with an in-memory Dexie mock), geodata coordinate parser and clustering algorithms (`tests/utils/geo.test.ts`).
+- **Component tests:** `<ImportScreen>` drop zone, `<MessageBubble>` content/null handling, `<MemoryCard>` overlay compositing, `<MapView>` Leaflet controls, cluster cards, and filter toggles (`tests/views/map/map.test.tsx`).
 - **No E2E in v1** — the app is purely local and has no network layer to test against; unit + component coverage is sufficient.
 
 Run tests with:
@@ -516,17 +516,17 @@ pnpm test:run      # CI single-run
 
 ## Commit cadence summary
 
-| Commit                                                                        | Contents |
-| ----------------------------------------------------------------------------- | -------- |
-| `chore: scaffold Vite + React + TS + Tailwind + tooling`                      | Phase 0  |
-| `feat(data): ingest pipeline, parsers, Dexie schema, search index`            | Phase 1  |
-| `feat(ui): app shell, design system, shared components`                       | Phase 2  |
-| `feat(views): chats view — contact list + conversation pane`                  | Phase 3  |
-| `feat(views): memories gallery — masonry grid + lightbox`                     | Phase 4  |
-| `feat(views): stats view — activity charts, most-contacted, call summary`     | Phase 5  |
-| `feat(search): global search overlay + filter integration`                    | Phase 6  |
-| `feat(polish): empty states, error bounds, responsive layout, a11y`           | Phase 7  |
-| `feat(map): add memories location map view with leaflet`                      | Phase 8  |
+| Commit                                                                       | Contents |
+| ---------------------------------------------------------------------------- | -------- |
+| `chore: scaffold Vite + React + TS + Tailwind + tooling`                     | Phase 0  |
+| `feat(data): ingest pipeline, parsers, Dexie schema, search index`           | Phase 1  |
+| `feat(ui): app shell, design system, shared components`                      | Phase 2  |
+| `feat(views): chats view — contact list + conversation pane`                 | Phase 3  |
+| `feat(views): memories gallery — masonry grid + lightbox`                    | Phase 4  |
+| `feat(views): stats view — activity charts, most-contacted, call summary`    | Phase 5  |
+| `feat(search): global search overlay + filter integration`                   | Phase 6  |
+| `feat(polish): empty states, error bounds, responsive layout, a11y`          | Phase 7  |
+| `feat(map): add memories location map view with leaflet`                     | Phase 8  |
 | `fix(map): resolve map container mounting and video tray thumbnail decoding` | Phase 8  |
 | `feat(map): support CARTO API key via environment variables`                 | Phase 8  |
 
@@ -534,12 +534,12 @@ pnpm test:run      # CI single-run
 
 ## Design decisions — all resolved ✅
 
-| #   | Decision                           | Choice                                                                                                                   |
-| --- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| 1   | **Memories join strategy**         | Files-drive; JSON is metadata-only. Files are primary source of truth.                                                   |
-| 2   | **Group chat display**             | Folded into the contact list (keyed by `Conversation Title` when non-null).                                              |
-| 3   | **Charting approach**              | Hand-rolled SVG — `<BarChart>` and `<DonutChart>` in `src/components/charts/`.                                           |
-| 4   | **Masonry layout**                 | JS-calculated positions (`top`/`left`) with `ResizeObserver`; viewport-intersect virtualization.                         |
-| 5   | **Map rendering & tile provider**  | Leaflet with CARTO Dark Matter basemap (authenticated via `VITE_CARTO_API_KEY`), falling back to standard OpenStreetMap. |
-| 6   | **Map clustering strategy**        | Pure client-side dynamic grid clustering (`clusterGeoMemories`) adapting to zoom level (zero external geocoding calls).  |
-| 7   | **Video thumbnails in map tray**   | HTML5 `<video>` elements with Blob object URLs and `preload="metadata"` for local frame extraction.                     |
+| #   | Decision                          | Choice                                                                                                                   |
+| --- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| 1   | **Memories join strategy**        | Files-drive; JSON is metadata-only. Files are primary source of truth.                                                   |
+| 2   | **Group chat display**            | Folded into the contact list (keyed by `Conversation Title` when non-null).                                              |
+| 3   | **Charting approach**             | Hand-rolled SVG — `<BarChart>` and `<DonutChart>` in `src/components/charts/`.                                           |
+| 4   | **Masonry layout**                | JS-calculated positions (`top`/`left`) with `ResizeObserver`; viewport-intersect virtualization.                         |
+| 5   | **Map rendering & tile provider** | Leaflet with CARTO Dark Matter basemap (authenticated via `VITE_CARTO_API_KEY`), falling back to standard OpenStreetMap. |
+| 6   | **Map clustering strategy**       | Pure client-side dynamic grid clustering (`clusterGeoMemories`) adapting to zoom level (zero external geocoding calls).  |
+| 7   | **Video thumbnails in map tray**  | HTML5 `<video>` elements with Blob object URLs and `preload="metadata"` for local frame extraction.                      |

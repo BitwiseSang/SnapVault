@@ -1,16 +1,16 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
-import { MapMemoryCard } from './MapMemoryCard'
-import { MapView } from './MapView'
-import { GeoMemoryEvent } from '../../utils/geo'
-import { getGeoMemories } from '../../db/db'
+import { MapMemoryCard } from '../../../src/views/map/MapMemoryCard'
+import { MapView } from '../../../src/views/map/MapView'
+import { GeoMemoryEvent } from '../../../src/utils/geo'
+import { getGeoMemories } from '../../../src/db/db'
 import L from 'leaflet'
 
-vi.mock('../../db/db', () => ({
+vi.mock('../../../src/db/db', () => ({
   getGeoMemories: vi.fn(),
 }))
 
-vi.mock('../../app/AppContext', () => ({
+vi.mock('../../../src/app/AppContext', () => ({
   useApp: () => ({ theme: 'dark' }),
 }))
 

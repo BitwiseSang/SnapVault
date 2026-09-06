@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { parseChat } from './chat'
-import { parseSnaps } from './snap'
-import { parseCalls } from './call'
-import { parseMemories } from './memory'
-import { IngestedFile } from '../models/ingest'
+import { parseChat } from '../../src/parsers/chat'
+import { parseSnaps } from '../../src/parsers/snap'
+import { parseCalls } from '../../src/parsers/call'
+import { parseMemories } from '../../src/parsers/memory'
+import { IngestedFile } from '../../src/models/ingest'
 
 describe('parseChat', () => {
   it('parses chat messages with contact grouping and directions', () => {

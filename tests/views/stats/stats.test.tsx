@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import { BarChart } from '../../components/charts/BarChart'
-import { DonutChart } from '../../components/charts/DonutChart'
+import { BarChart } from '../../../src/components/charts/BarChart'
+import { DonutChart } from '../../../src/components/charts/DonutChart'
 
 describe('BarChart', () => {
   it('renders SVG bar chart with labels and values', () => {

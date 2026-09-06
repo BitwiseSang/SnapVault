@@ -5,7 +5,7 @@ import {
   calculateBounds,
   clusterGeoMemories,
   GeoMemoryEvent,
-} from './geo'
+} from '../../src/utils/geo'
 
 describe('parseCoordinates', () => {
   it('parses valid positive latitude and longitude', () => {

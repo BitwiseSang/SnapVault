@@ -1,9 +1,9 @@
 import { describe, expect, it, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
-import { MessageBubble } from './MessageBubble'
-import { compareContacts, ContactList } from './ContactList'
-import { ContactSummary } from '../../db/db'
-import { MessageEvent, SnapEvent } from '../../models/events'
+import { MessageBubble } from '../../../src/views/chats/MessageBubble'
+import { compareContacts, ContactList } from '../../../src/views/chats/ContactList'
+import { ContactSummary } from '../../../src/db/db'
+import { MessageEvent, SnapEvent } from '../../../src/models/events'
 
 describe('MessageBubble', () => {
   it('renders text message correctly when content is present', () => {

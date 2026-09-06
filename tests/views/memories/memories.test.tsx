@@ -1,8 +1,8 @@
 import { describe, expect, it, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import { MemoryCard } from './MemoryCard'
-import { MediaLightbox } from './MediaLightbox'
-import { MemoryEvent } from '../../models/events'
+import { MemoryCard } from '../../../src/views/memories/MemoryCard'
+import { MediaLightbox } from '../../../src/views/memories/MediaLightbox'
+import { MemoryEvent } from '../../../src/models/events'
 
 type ObserverCallback = (
   entries: IntersectionObserverEntry[],

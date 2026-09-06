@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { buildSearchIndex, searchApp } from './index'
-import { MessageEvent, MemoryEvent } from '../models/events'
+import { buildSearchIndex, searchApp } from '../../src/search/index'
+import { MessageEvent, MemoryEvent } from '../../src/models/events'
 
 describe('Search Index', () => {
   it('indexes contacts, message content, and memories with search queries', () => {

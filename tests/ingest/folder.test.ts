@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { FolderIngestSource, createIngestFromFiles } from './folder'
-import { normalizeExportPath } from './normalize'
+import { FolderIngestSource, createIngestFromFiles } from '../../src/ingest/folder'
+import { normalizeExportPath } from '../../src/ingest/normalize'
 
 describe('normalizeExportPath', () => {
   it('strips top-level wrapper directory prefix for json', () => {
