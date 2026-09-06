@@ -7,6 +7,7 @@ import {
   SnapEvent,
 } from '../models/events'
 import { ImportMetaRecord } from '../models/ingest'
+import { GeoMemoryEvent, parseCoordinates } from '../utils/geo'
 import { db } from './schema'
 
 export { db }
@@ -393,4 +394,19 @@ export async function getStatsData(): Promise<StatsData> {
     .slice(0, 10)
 
   return stats
+}
+
+export async function getGeoMemories(): Promise<GeoMemoryEvent[]> {
+  const memories = await db.events.where('type').equals('memory').sortBy('timestamp')
+  const geoMemories: GeoMemoryEvent[] = []
+  for (const m of memories as MemoryEvent[]) {
+    const coords = parseCoordinates(m.location)
+    if (coords) {
+      geoMemories.push({
+        ...m,
+        coordinates: coords,
+      })
+    }
+  }
+  return geoMemories
 }

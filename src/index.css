@@ -88,3 +88,35 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--color-text-secondary);
 }
+
+/* Leaflet custom map markers & dark theme overrides */
+.leaflet-div-icon {
+  background: transparent !important;
+  border: none !important;
+}
+
+.leaflet-container {
+  background-color: #121212 !important;
+  font-family: inherit !important;
+}
+
+.leaflet-control-attribution {
+  background: rgba(18, 18, 18, 0.85) !important;
+  color: #71717a !important;
+  font-size: 10px !important;
+}
+
+.leaflet-control-attribution a {
+  color: #a1a1aa !important;
+}
+
+.leaflet-bar a {
+  background-color: var(--color-surface) !important;
+  color: var(--color-text-primary) !important;
+  border-bottom-color: var(--color-border) !important;
+}
+
+.leaflet-bar a:hover {
+  background-color: var(--color-surface-raised) !important;
+  color: var(--color-text-primary) !important;
+}

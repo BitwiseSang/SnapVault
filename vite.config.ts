@@ -6,6 +6,7 @@ import { defineConfig } from 'vite'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [tailwindcss(), react()],
+  envPrefix: ['VITE_', 'CARTO_'],
   test: {
     environment: 'jsdom',
     globals: true,

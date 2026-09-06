@@ -2,6 +2,7 @@ import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import {
   MessageSquare,
   Image as ImageIcon,
+  MapPin,
   BarChart2,
   Search,
   Moon,
@@ -29,6 +30,11 @@ export function MainLayout() {
       label: 'Memories',
       icon: ImageIcon,
       count: meta ? meta.memoryCount : undefined,
+    },
+    {
+      to: '/map',
+      label: 'Map',
+      icon: MapPin,
     },
     {
       to: '/stats',

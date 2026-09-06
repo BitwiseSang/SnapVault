@@ -4,6 +4,7 @@ import { MainLayout } from './app/MainLayout'
 import { ImportScreen } from './views/import/ImportScreen'
 import { ChatsView } from './views/chats/ChatsView'
 import { MemoriesView } from './views/memories/MemoriesView'
+import { MapView } from './views/map/MapView'
 import { StatsView } from './views/stats/StatsView'
 import { Spinner } from './components/Spinner'
 import { ErrorBoundary } from './components/ErrorBoundary'
@@ -40,6 +41,7 @@ export function App() {
               <Route path="/chats" element={<ChatsView />} />
               <Route path="/chats/:contact" element={<ChatsView />} />
               <Route path="/memories" element={<MemoriesView />} />
+              <Route path="/map" element={<MapView />} />
               <Route path="/stats" element={<StatsView />} />
             </Route>
 
