@@ -23,16 +23,27 @@ import { useMediaUrl } from '../../db/mediaUrl'
 
 type MediaTypeFilter = 'ALL' | 'IMAGE' | 'VIDEO'
 
+function getCartoTileUrl(variant: 'dark' | 'light'): string {
+  const apiKey = (
+    import.meta.env.CARTO_API_KEY ||
+    (import.meta.env as Record<string, string | undefined>).CARTO_API_KEY ||
+    ''
+  ).trim()
+  const path = variant === 'dark' ? 'dark_all' : 'rastertiles/voyager'
+  const keyQuery = apiKey ? `?key=${encodeURIComponent(apiKey)}` : ''
+  return `https://{s}.basemaps.cartocdn.com/${path}/{z}/{x}/{y}{r}.png${keyQuery}`
+}
+
 const TILE_LAYERS = {
   dark: {
-    url: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+    url: getCartoTileUrl('dark'),
     attribution:
       '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
     subdomains: 'abcd',
     maxZoom: 19,
   },
   light: {
-    url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+    url: getCartoTileUrl('light'),
     attribution:
       '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
     subdomains: 'abcd',

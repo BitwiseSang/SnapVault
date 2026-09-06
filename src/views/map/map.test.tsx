@@ -4,6 +4,7 @@ import { MapMemoryCard } from './MapMemoryCard'
 import { MapView } from './MapView'
 import { GeoMemoryEvent } from '../../utils/geo'
 import { getGeoMemories } from '../../db/db'
+import L from 'leaflet'
 
 vi.mock('../../db/db', () => ({
   getGeoMemories: vi.fn(),
@@ -134,5 +135,16 @@ describe('MapView', () => {
 
     // Verify tray is open
     expect(screen.getByText('Located Memories (1)')).toBeDefined()
+  })
+
+  it('appends api key to tile layer URL when VITE_CARTO_API_KEY is configured', async () => {
+    const tileLayerSpy = vi.spyOn(L, 'tileLayer')
+
+    vi.mocked(getGeoMemories).mockResolvedValue([])
+
+    render(<MapView />)
+
+    expect(await screen.findByText('No Location Data Found')).toBeDefined()
+    expect(tileLayerSpy).toHaveBeenCalledWith(expect.stringMatching(/key=/), expect.any(Object))
   })
 })
