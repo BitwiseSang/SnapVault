@@ -17,6 +17,27 @@ export interface SearchDoc {
 
 let searchIndexInstance: MiniSearch<SearchDoc> | null = null
 
+export function searchTokenizer(text: string): string[] {
+  // Normalize contractions: "don't" -> "dont", "let's" -> "lets", "it's" -> "its", "i'm" -> "im"
+  // This prevents apostrophes from generating rogue single-letter 't'/'s' tokens that match other contractions
+  const normalized = text.toLowerCase().replace(/(\p{L})['’](\p{L})/gu, '$1$2')
+  return normalized.split(/[^\p{L}\p{N}_]+/u).filter((term) => term.length > 0)
+}
+
+export function formatDateKeywords(isoTimestamp: string): string {
+  try {
+    const d = new Date(isoTimestamp)
+    if (Number.isNaN(d.getTime())) return ''
+    const monthFull = d.toLocaleDateString('en-US', { month: 'long' })
+    const monthShort = d.toLocaleDateString('en-US', { month: 'short' })
+    const year = d.getFullYear().toString()
+    const day = d.getDate().toString()
+    return `${monthFull} ${monthShort} ${year} ${day}`
+  } catch {
+    return ''
+  }
+}
+
 export function buildSearchIndex(events: AppEvent[]): MiniSearch<SearchDoc> {
   const index = new MiniSearch<SearchDoc>({
     fields: ['title', 'snippet', 'contact', 'content', 'location', 'date'],
@@ -32,10 +53,12 @@ export function buildSearchIndex(events: AppEvent[]): MiniSearch<SearchDoc> {
       'snippet',
       'date',
     ],
+    tokenize: searchTokenizer,
     searchOptions: {
       boost: { title: 3, contact: 2, content: 1.5 },
-      fuzzy: 0.2,
-      prefix: true,
+      combineWith: 'AND',
+      prefix: (_term: string, i: number, terms: string[]) => i === terms.length - 1,
+      fuzzy: (term: string) => (term.length >= 5 ? 1 : 0),
     },
   })
 
@@ -53,9 +76,9 @@ export function buildSearchIndex(events: AppEvent[]): MiniSearch<SearchDoc> {
         type: 'contact',
         contact: ev.contact,
         timestamp: ev.timestamp,
-        date: dateStr,
+        date: '',
         title: ev.contact,
-        snippet: `Contact conversation with ${ev.contact}`,
+        snippet: `@${ev.contact}`,
       })
     }
 
@@ -64,11 +87,12 @@ export function buildSearchIndex(events: AppEvent[]): MiniSearch<SearchDoc> {
       const msg = ev as MessageEvent
       if (msg.content && msg.content.trim()) {
         const preview = msg.content.length > 80 ? msg.content.slice(0, 80) + '...' : msg.content
+        const dateWords = formatDateKeywords(msg.timestamp)
         docs.push({
           id: msg.id,
           type: 'message',
           contact: msg.contact,
-          content: msg.content,
+          content: `${msg.content} ${dateWords}`,
           timestamp: msg.timestamp,
           date: dateStr,
           title: msg.contact ?? 'Chat',
@@ -82,6 +106,8 @@ export function buildSearchIndex(events: AppEvent[]): MiniSearch<SearchDoc> {
       const mem = ev as MemoryEvent
       const hasLocation = mem.location && mem.location.trim() && !mem.location.includes('0.0, 0.0')
       const cleanLoc = hasLocation ? mem.location.replace('Latitude, Longitude:', '').trim() : ''
+      const dateWords = formatDateKeywords(mem.timestamp)
+      const mediaSynonyms = mem.mediaKind === 'Video' ? 'video clip' : 'photo image picture snap'
 
       docs.push({
         id: mem.id,
@@ -92,6 +118,7 @@ export function buildSearchIndex(events: AppEvent[]): MiniSearch<SearchDoc> {
         mediaFile: mem.mediaFile,
         title: `${mem.mediaKind} Memory`,
         snippet: cleanLoc ? `${dateStr} • ${cleanLoc}` : dateStr,
+        content: `${dateWords} ${mediaSynonyms} ${cleanLoc}`,
       })
     }
   }
@@ -115,7 +142,7 @@ export function searchApp(query: string): SearchDoc[] {
  */
 export function useSearch(
   query: string,
-  delayMs = 150,
+  delayMs = 120,
 ): { results: SearchDoc[]; isSearching: boolean } {
   const [debouncedQuery, setDebouncedQuery] = useState(query)
 

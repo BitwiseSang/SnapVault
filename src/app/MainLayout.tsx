@@ -63,6 +63,10 @@ export function MainLayout() {
     },
   ]
 
+  const isMac =
+    typeof navigator !== 'undefined' &&
+    /Mac|iPod|iPhone|iPad/.test(navigator.platform || navigator.userAgent)
+
   return (
     <div className="flex flex-col md:flex-row h-screen w-screen overflow-hidden bg-bg text-text-primary">
       {/* Top Header for Mobile */}
@@ -140,9 +144,14 @@ export function MainLayout() {
               <Search className="w-3.5 h-3.5 text-text-secondary group-hover:text-text-primary" />
               <span>Quick search...</span>
             </span>
-            <kbd className="text-[10px] font-mono bg-surface border border-border px-1.5 py-0.5 rounded text-text-secondary">
-              ⌘K
-            </kbd>
+            <div className="flex items-center gap-1">
+              <kbd className="text-[10px] font-mono font-medium bg-surface border border-border/80 px-1.5 py-0.5 rounded text-text-primary shadow-xs">
+                {isMac ? '⌘' : 'Ctrl'}
+              </kbd>
+              <kbd className="text-[10px] font-mono font-medium bg-surface border border-border/80 px-1.5 py-0.5 rounded text-text-primary shadow-xs">
+                K
+              </kbd>
+            </div>
           </button>
         </div>
 

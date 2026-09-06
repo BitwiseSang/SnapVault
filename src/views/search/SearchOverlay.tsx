@@ -1,4 +1,4 @@
-import { useState, useTransition, useMemo, useRef, KeyboardEvent } from 'react'
+import { useState, useMemo, useRef, KeyboardEvent } from 'react'
 import { Search, X, MessageSquare, Image, User, ArrowRight } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useApp } from '../../app/AppContext'
@@ -8,7 +8,6 @@ export function SearchOverlay() {
   const { isSearchOpen, setIsSearchOpen } = useApp()
   const [query, setQuery] = useState('')
   const [selectedIndex, setSelectedIndex] = useState(0)
-  const [, startTransition] = useTransition()
   const { results, isSearching } = useSearch(query, 100)
   const navigate = useNavigate()
   const listRef = useRef<HTMLDivElement>(null)
@@ -28,9 +27,13 @@ export function SearchOverlay() {
     return { contacts, messages, memories }
   }, [results])
 
+  const visualResults = useMemo(() => {
+    return [...grouped.contacts, ...grouped.messages, ...grouped.memories]
+  }, [grouped])
+
   if (!isSearchOpen) return null
 
-  const safeSelectedIndex = Math.min(selectedIndex, Math.max(0, results.length - 1))
+  const safeSelectedIndex = Math.min(selectedIndex, Math.max(0, visualResults.length - 1))
 
   const handleClose = () => {
     setQuery('')
@@ -52,14 +55,14 @@ export function SearchOverlay() {
   const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     if (e.key === 'ArrowDown') {
       e.preventDefault()
-      setSelectedIndex((prev) => (prev < results.length - 1 ? prev + 1 : prev))
+      setSelectedIndex((prev) => (prev < visualResults.length - 1 ? prev + 1 : prev))
     } else if (e.key === 'ArrowUp') {
       e.preventDefault()
       setSelectedIndex((prev) => (prev > 0 ? prev - 1 : 0))
     } else if (e.key === 'Enter') {
       e.preventDefault()
-      if (results[safeSelectedIndex]) {
-        handleSelect(results[safeSelectedIndex]!)
+      if (visualResults[safeSelectedIndex]) {
+        handleSelect(visualResults[safeSelectedIndex]!)
       }
     } else if (e.key === 'Escape') {
       e.preventDefault()
@@ -96,11 +99,8 @@ export function SearchOverlay() {
             type="text"
             value={query}
             onChange={(e) => {
-              const val = e.target.value
+              setQuery(e.target.value)
               setSelectedIndex(0)
-              startTransition(() => {
-                setQuery(val)
-              })
             }}
             placeholder="Search contacts, saved messages, memories..."
             className="flex-1 bg-transparent text-sm text-text-primary placeholder:text-text-secondary focus:outline-none"
@@ -127,7 +127,7 @@ export function SearchOverlay() {
             <div className="py-6 text-center text-xs text-text-secondary">Searching...</div>
           )}
 
-          {!isSearching && query.trim() && results.length === 0 && (
+          {!isSearching && query.trim() && visualResults.length === 0 && (
             <div className="py-12 text-center text-sm text-text-secondary space-y-1">
               <p className="font-semibold text-text-primary">No results found</p>
               <p className="text-xs">No matches for &ldquo;{query}&rdquo;</p>
@@ -141,7 +141,7 @@ export function SearchOverlay() {
             </div>
           )}
 
-          {results.length > 0 && (
+          {visualResults.length > 0 && (
             <>
               {/* Contacts section */}
               {grouped.contacts.length > 0 && (
@@ -150,13 +150,18 @@ export function SearchOverlay() {
                     Contacts ({grouped.contacts.length})
                   </div>
                   {grouped.contacts.map((doc) => {
-                    const globalIdx = results.indexOf(doc)
-                    const isFocused = safeSelectedIndex === globalIdx
+                    const visualIdx = visualResults.indexOf(doc)
+                    const isFocused = safeSelectedIndex === visualIdx
                     return (
                       <div
                         key={doc.id}
+                        ref={(node) => {
+                          if (isFocused && node) {
+                            node.scrollIntoView({ block: 'nearest' })
+                          }
+                        }}
                         onClick={() => handleSelect(doc)}
-                        onMouseEnter={() => setSelectedIndex(globalIdx)}
+                        onMouseEnter={() => setSelectedIndex(visualIdx)}
                         className={`flex items-center justify-between p-2.5 rounded-xl transition cursor-pointer select-none ${
                           isFocused
                             ? 'bg-accent/15 border border-accent/30 text-text-primary'
@@ -190,13 +195,18 @@ export function SearchOverlay() {
                     Messages ({grouped.messages.length})
                   </div>
                   {grouped.messages.map((doc) => {
-                    const globalIdx = results.indexOf(doc)
-                    const isFocused = safeSelectedIndex === globalIdx
+                    const visualIdx = visualResults.indexOf(doc)
+                    const isFocused = safeSelectedIndex === visualIdx
                     return (
                       <div
                         key={doc.id}
+                        ref={(node) => {
+                          if (isFocused && node) {
+                            node.scrollIntoView({ block: 'nearest' })
+                          }
+                        }}
                         onClick={() => handleSelect(doc)}
-                        onMouseEnter={() => setSelectedIndex(globalIdx)}
+                        onMouseEnter={() => setSelectedIndex(visualIdx)}
                         className={`flex items-center justify-between p-2.5 rounded-xl transition cursor-pointer select-none ${
                           isFocused
                             ? 'bg-accent/15 border border-accent/30 text-text-primary'
@@ -232,13 +242,18 @@ export function SearchOverlay() {
                     Memories ({grouped.memories.length})
                   </div>
                   {grouped.memories.map((doc) => {
-                    const globalIdx = results.indexOf(doc)
-                    const isFocused = safeSelectedIndex === globalIdx
+                    const visualIdx = visualResults.indexOf(doc)
+                    const isFocused = safeSelectedIndex === visualIdx
                     return (
                       <div
                         key={doc.id}
+                        ref={(node) => {
+                          if (isFocused && node) {
+                            node.scrollIntoView({ block: 'nearest' })
+                          }
+                        }}
                         onClick={() => handleSelect(doc)}
-                        onMouseEnter={() => setSelectedIndex(globalIdx)}
+                        onMouseEnter={() => setSelectedIndex(visualIdx)}
                         className={`flex items-center justify-between p-2.5 rounded-xl transition cursor-pointer select-none ${
                           isFocused
                             ? 'bg-accent/15 border border-accent/30 text-text-primary'
@@ -271,7 +286,7 @@ export function SearchOverlay() {
         </div>
 
         {/* Footer hints */}
-        {results.length > 0 && (
+        {visualResults.length > 0 && (
           <div className="flex items-center justify-between px-4 py-2 border-t border-border text-[10px] text-text-secondary bg-surface-raised">
             <div className="flex items-center gap-3">
               <span>
@@ -284,7 +299,7 @@ export function SearchOverlay() {
                 select
               </span>
             </div>
-            <span>{results.length} results</span>
+            <span>{visualResults.length} results</span>
           </div>
         )}
       </div>
