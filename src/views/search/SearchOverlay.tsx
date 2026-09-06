@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, KeyboardEvent } from 'react'
+import { useState, useMemo, useRef, useEffect, useCallback, MouseEvent } from 'react'
 import { Search, X, MessageSquare, Image, User, ArrowRight } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { useApp } from '../../app/AppContext'
@@ -11,6 +11,9 @@ export function SearchOverlay() {
   const { results, isSearching } = useSearch(query, 100)
   const navigate = useNavigate()
   const listRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const navModeRef = useRef<'keyboard' | 'mouse'>('keyboard')
+  const lastMousePosRef = useRef({ x: -1, y: -1 })
 
   // Group results by category (hook must be called unconditionally)
   const grouped = useMemo(() => {
@@ -31,42 +34,91 @@ export function SearchOverlay() {
     return [...grouped.contacts, ...grouped.messages, ...grouped.memories]
   }, [grouped])
 
-  if (!isSearchOpen) return null
-
   const safeSelectedIndex = Math.min(selectedIndex, Math.max(0, visualResults.length - 1))
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     setQuery('')
     setSelectedIndex(0)
     setIsSearchOpen(false)
-  }
+  }, [setIsSearchOpen])
 
-  const handleSelect = (doc: SearchDoc) => {
-    handleClose()
-    if (doc.type === 'contact' && doc.contact) {
-      navigate(`/chats/${encodeURIComponent(doc.contact)}`)
-    } else if (doc.type === 'message' && doc.contact) {
-      navigate(`/chats/${encodeURIComponent(doc.contact)}?msgId=${encodeURIComponent(doc.id)}`)
-    } else if (doc.type === 'memory') {
-      navigate('/memories')
-    }
-  }
-
-  const handleKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
-    if (e.key === 'ArrowDown') {
-      e.preventDefault()
-      setSelectedIndex((prev) => (prev < visualResults.length - 1 ? prev + 1 : prev))
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault()
-      setSelectedIndex((prev) => (prev > 0 ? prev - 1 : 0))
-    } else if (e.key === 'Enter') {
-      e.preventDefault()
-      if (visualResults[safeSelectedIndex]) {
-        handleSelect(visualResults[safeSelectedIndex]!)
-      }
-    } else if (e.key === 'Escape') {
-      e.preventDefault()
+  const handleSelect = useCallback(
+    (doc: SearchDoc) => {
       handleClose()
+      if (doc.type === 'contact' && doc.contact) {
+        navigate(`/chats/${encodeURIComponent(doc.contact)}`)
+      } else if (doc.type === 'message' && doc.contact) {
+        navigate(`/chats/${encodeURIComponent(doc.contact)}?msgId=${encodeURIComponent(doc.id)}`)
+      } else if (doc.type === 'memory') {
+        navigate('/memories')
+      }
+    },
+    [handleClose, navigate],
+  )
+
+  // Focus input whenever search opens
+  useEffect(() => {
+    if (isSearchOpen) {
+      inputRef.current?.focus()
+    }
+  }, [isSearchOpen])
+
+  // Scroll active item into view only on keyboard navigation
+  useEffect(() => {
+    if (navModeRef.current === 'keyboard' && listRef.current) {
+      const activeElement = listRef.current.querySelector<HTMLElement>(
+        `[data-index="${safeSelectedIndex}"]`,
+      )
+      if (activeElement) {
+        activeElement.scrollIntoView({ block: 'nearest' })
+      }
+    }
+  }, [safeSelectedIndex])
+
+  // Global window keyboard listener for Escape, Arrow keys, and Enter
+  useEffect(() => {
+    if (!isSearchOpen) return
+
+    const handleWindowKeyDown = (e: globalThis.KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        handleClose()
+      } else if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        navModeRef.current = 'keyboard'
+        setSelectedIndex((prev) => (prev < visualResults.length - 1 ? prev + 1 : prev))
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        navModeRef.current = 'keyboard'
+        setSelectedIndex((prev) => (prev > 0 ? prev - 1 : 0))
+      } else if (e.key === 'Enter') {
+        e.preventDefault()
+        if (visualResults[safeSelectedIndex]) {
+          handleSelect(visualResults[safeSelectedIndex]!)
+        }
+      }
+    }
+
+    window.addEventListener('keydown', handleWindowKeyDown)
+    document.body.style.overflow = 'hidden'
+
+    return () => {
+      window.removeEventListener('keydown', handleWindowKeyDown)
+      document.body.style.overflow = ''
+    }
+  }, [isSearchOpen, visualResults, safeSelectedIndex, handleClose, handleSelect])
+
+  if (!isSearchOpen) return null
+
+  const handleItemMouseMove = (visualIdx: number, e: MouseEvent<HTMLDivElement>) => {
+    // Only update selection if the mouse physically moved (not if item moved under static cursor during scroll)
+    if (
+      Math.abs(e.clientX - lastMousePosRef.current.x) > 2 ||
+      Math.abs(e.clientY - lastMousePosRef.current.y) > 2
+    ) {
+      lastMousePosRef.current = { x: e.clientX, y: e.clientY }
+      navModeRef.current = 'mouse'
+      setSelectedIndex(visualIdx)
     }
   }
 
@@ -85,7 +137,9 @@ export function SearchOverlay() {
     <div
       className="fixed inset-0 z-50 flex items-start justify-center pt-16 sm:pt-20 p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150"
       onClick={handleClose}
-      onKeyDown={handleKeyDown}
+      role="dialog"
+      aria-modal="true"
+      tabIndex={-1}
     >
       <div
         className="w-full max-w-xl bg-surface border border-border rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh]"
@@ -95,10 +149,12 @@ export function SearchOverlay() {
         <div className="flex items-center gap-3 px-4 py-3.5 border-b border-border">
           <Search className="w-4 h-4 text-text-secondary shrink-0" />
           <input
+            ref={inputRef}
             autoFocus
             type="text"
             value={query}
             onChange={(e) => {
+              navModeRef.current = 'keyboard'
               setQuery(e.target.value)
               setSelectedIndex(0)
             }}
@@ -110,6 +166,7 @@ export function SearchOverlay() {
               onClick={() => {
                 setQuery('')
                 setSelectedIndex(0)
+                inputRef.current?.focus()
               }}
               className="p-1 text-text-secondary hover:text-text-primary transition cursor-pointer"
             >
@@ -155,13 +212,9 @@ export function SearchOverlay() {
                     return (
                       <div
                         key={doc.id}
-                        ref={(node) => {
-                          if (isFocused && node) {
-                            node.scrollIntoView({ block: 'nearest' })
-                          }
-                        }}
+                        data-index={visualIdx}
                         onClick={() => handleSelect(doc)}
-                        onMouseEnter={() => setSelectedIndex(visualIdx)}
+                        onMouseMove={(e) => handleItemMouseMove(visualIdx, e)}
                         className={`flex items-center justify-between p-2.5 rounded-xl transition cursor-pointer select-none ${
                           isFocused
                             ? 'bg-accent/15 border border-accent/30 text-text-primary'
@@ -200,13 +253,9 @@ export function SearchOverlay() {
                     return (
                       <div
                         key={doc.id}
-                        ref={(node) => {
-                          if (isFocused && node) {
-                            node.scrollIntoView({ block: 'nearest' })
-                          }
-                        }}
+                        data-index={visualIdx}
                         onClick={() => handleSelect(doc)}
-                        onMouseEnter={() => setSelectedIndex(visualIdx)}
+                        onMouseMove={(e) => handleItemMouseMove(visualIdx, e)}
                         className={`flex items-center justify-between p-2.5 rounded-xl transition cursor-pointer select-none ${
                           isFocused
                             ? 'bg-accent/15 border border-accent/30 text-text-primary'
@@ -247,13 +296,9 @@ export function SearchOverlay() {
                     return (
                       <div
                         key={doc.id}
-                        ref={(node) => {
-                          if (isFocused && node) {
-                            node.scrollIntoView({ block: 'nearest' })
-                          }
-                        }}
+                        data-index={visualIdx}
                         onClick={() => handleSelect(doc)}
-                        onMouseEnter={() => setSelectedIndex(visualIdx)}
+                        onMouseMove={(e) => handleItemMouseMove(visualIdx, e)}
                         className={`flex items-center justify-between p-2.5 rounded-xl transition cursor-pointer select-none ${
                           isFocused
                             ? 'bg-accent/15 border border-accent/30 text-text-primary'

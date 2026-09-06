@@ -153,4 +153,80 @@ describe('SearchOverlay', () => {
 
     expect(mockNavigate).toHaveBeenCalledWith('/chats/alex_smith?msgId=msg_2')
   })
+
+  it('closes the modal when Escape is pressed anywhere in the window', () => {
+    buildSearchIndex([])
+    render(
+      <MemoryRouter>
+        <SearchOverlay />
+      </MemoryRouter>,
+    )
+
+    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(mockSetIsSearchOpen).toHaveBeenCalledWith(false)
+  })
+
+  it('ignores mousemove when cursor position does not change (prevents jump on scroll)', async () => {
+    const events: MessageEvent[] = [
+      {
+        id: 'msg_1',
+        type: 'message',
+        timestamp: '2026-09-01T12:00:00.000Z',
+        contact: 'alex_smith',
+        direction: 'received',
+        mediaType: 'TEXT',
+        content: 'First message',
+        isSaved: true,
+        mediaIds: '',
+        conversationTitle: null,
+      },
+      {
+        id: 'msg_2',
+        type: 'message',
+        timestamp: '2026-09-02T12:00:00.000Z',
+        contact: 'alex_smith',
+        direction: 'sent',
+        mediaType: 'TEXT',
+        content: 'Second message',
+        isSaved: true,
+        mediaIds: '',
+        conversationTitle: null,
+      },
+    ]
+
+    buildSearchIndex(events)
+
+    const { container } = render(
+      <MemoryRouter>
+        <SearchOverlay />
+      </MemoryRouter>,
+    )
+
+    const input = screen.getByPlaceholderText(/Search contacts/i)
+    fireEvent.change(input, { target: { value: 'alex' } })
+
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 160))
+    })
+
+    // Index 0 is Contact: alex_smith
+    // Index 1 is Message: msg_1
+    // Index 2 is Message: msg_2
+    const msg1El = container.querySelector('[data-index="1"]') as HTMLElement
+    expect(msg1El).toBeDefined()
+
+    // User physically moves mouse over msg_1 at (100, 100)
+    fireEvent.mouseMove(msg1El, { clientX: 100, clientY: 100 })
+
+    // User uses ArrowDown on keyboard to navigate to msg_2 (Index 2)
+    fireEvent.keyDown(window, { key: 'ArrowDown' })
+
+    // A scroll event occurs while the physical mouse is stationary at (100, 100).
+    // The browser fires mouseMove on msg1El because of the scroll, but clientX/clientY did not change:
+    fireEvent.mouseMove(msg1El, { clientX: 100, clientY: 100 })
+
+    // Press Enter: it must select msg_2 (keyboard selection), NOT msg_1 (the hovered element)
+    fireEvent.keyDown(window, { key: 'Enter' })
+    expect(mockNavigate).toHaveBeenCalledWith('/chats/alex_smith?msgId=msg_2')
+  })
 })
