@@ -16,6 +16,7 @@ Phase 4 → Memories gallery
 Phase 5 → Stats view
 Phase 6 → Global search & filters
 Phase 7 → Polish, empty states & accessibility
+Phase 8 → Memories Snap Map
 ```
 
 Each phase builds on the last and is independently committable. Phases 3–6 can be parallelized once Phase 2 is done if multiple agents are working concurrently.
@@ -416,17 +417,82 @@ Every view needs a thoughtful empty state — not a blank white page.
 
 ---
 
+## Phase 8 — Memories Snap Map
+
+**Goal:** An interactive global Snap Map visualizing geotagged memories, allowing users to explore their memories geographically while maintaining strict offline privacy guarantees.
+
+### Context & Data Findings
+
+- In Snapchat exports, ephemeral chat snaps omit GPS coordinates, but saved memories (`memories_history.json`) frequently retain full GPS latitude and longitude metadata.
+- In sample export data: ~40% (567 of 1,421) memories contain non-zero GPS coordinates (`"Location": "Latitude, Longitude: 0.5560059, 35.24502"`).
+- Memories with unrecorded locations use `"Latitude, Longitude: 0.0, 0.0"` or empty strings.
+
+### Hard Privacy Guarantees (`AGENTS.md`)
+
+- **Zero user data leaves the machine:** No coordinates, dates, or media files are ever sent across the network.
+- Map requests are strictly limited to public raster tile downloads (CartoDB Dark Matter or OpenStreetMap).
+- Clustering, marker positioning, coordinate filtering, and media rendering execute 100% client-side in the browser.
+- Full offline resilience: renders a coordinate grid and markers with an offline indicator if no internet connection is present.
+
+### 8.1 — Geodata & Coordinate Utilities (`src/utils/geo.ts`)
+
+- [x] **`parseCoordinates(locationStr)`**: Parses `"Latitude, Longitude: lat, lng"`, checks coordinate boundaries (`[-90, 90]` lat, `[-180, 180]` lng), and filters out Snapchat's unset default `(0.0, 0.0)`.
+- [x] **`clusterGeoMemories(memories, zoom)`**: Client-side grid clustering engine grouping neighboring memories based on dynamic map zoom level.
+- [x] **`formatCoordinates(lat, lng)`**: Converts raw decimal degrees to formatted compass coordinates (e.g. `0.5560° N, 35.2450° E`).
+- [x] **Unit tests (`src/utils/geo.test.ts`)**: 100% test coverage for parsing, boundary validation, invalid formats, and clustering behavior across zoom levels.
+
+### 8.2 — Database & Hook Integration (`src/db/db.ts`)
+
+- [x] **`getGeoMemories()`**: IndexedDB query helper that fetches all `MemoryEvent` records from Dexie, parses coordinates, and returns strongly-typed `GeoMemoryEvent[]` with non-null coordinates.
+
+### 8.3 — Map UI & Components (`src/views/map/`)
+
+- [x] **`<MapView>` (`src/views/map/MapView.tsx`)**:
+  - Full-bleed interactive Leaflet map matching SnapVault's `#0f0f0f` dark mode palette.
+  - Custom HTML markers (`L.divIcon`) with Snapchat yellow pins for individual memories and circular count badges for clusters.
+  - Interactive cluster expansion and zoom-to-cluster on click.
+  - Top filter bar: Type selector (`All` | `Photos` | `Videos`) and Year dropdown.
+  - Quick action toolbar: `Fit All` bounds, basemap layer toggle (Dark Matter vs OpenStreetMap), and bottom memory tray toggle.
+  - Smooth integration with `<MediaLightbox>` for full-screen inspection of images and videos with overlays.
+  - Friendly empty state when no memories have valid location metadata.
+- [x] **`<MapMemoryCard>` (`src/views/map/MapMemoryCard.tsx`)**:
+  - Compact memory card for marker popups and the bottom memory tray.
+  - Supports image previews and HTML5 video first-frame rendering via Blob Object URLs.
+  - Displays formatted date, time, media type badge, and geographic coordinates.
+
+### 8.4 — Routing & Navigation
+
+- [x] Added `/map` route to `src/App.tsx`.
+- [x] Added `Map` navigation item with `MapPin` icon and live geotagged count badge to desktop sidebar and mobile bottom nav in `src/app/MainLayout.tsx`.
+
+### 8.5 — Bug Fixes & Refinements
+
+- [x] **Map Container Sizing Fix**: Resolved blank map rendering by properly importing Leaflet stylesheet (`leaflet/dist/leaflet.css`), handling React container mount lifecycle, and triggering `map.invalidateSize()`.
+- [x] **Video Thumbnail Decoding**: Fixed video cards in the memory tray displaying fallback text instead of video frames by creating Blob URLs, setting `preload="metadata"`, and rendering HTML5 video posters.
+- [x] **CARTO API Key Integration**:
+  - Configured `VITE_CARTO_API_KEY` and `CARTO_API_KEY` in `vite.config.ts` via `envPrefix: ['VITE_', 'CARTO_']`.
+  - Added TypeScript typings in `src/vite-env.d.ts`.
+  - Created `.env.example` template and `.env`.
+  - Automatically appends API key to CartoDB basemap requests with automatic fallback to OpenStreetMap.
+
+- [x] Commit: `feat(map): add memories location map view with leaflet`
+- [x] Commit: `fix(map): resolve map container mounting and video tray thumbnail decoding`
+- [x] Commit: `feat(map): support CARTO API key via environment variables`
+
+---
+
 ## Dependency list (final)
 
 ```bash
 # Runtime
-pnpm add dexie minisearch @tanstack/react-virtual react-router-dom @fontsource/inter
+pnpm add dexie minisearch @tanstack/react-virtual react-router-dom @fontsource/inter leaflet
 
 # Dev
 pnpm add -D tailwindcss @tailwindcss/vite typescript eslint prettier \
   @typescript-eslint/eslint-plugin @typescript-eslint/parser \
   eslint-plugin-react-hooks rollup-plugin-visualizer \
-  vitest @testing-library/react @testing-library/user-event jsdom
+  vitest @testing-library/react @testing-library/user-event jsdom \
+  @types/leaflet
 ```
 
 > **Note:** No charting library. Charts are hand-rolled SVG components (`src/components/charts/`).
@@ -435,8 +501,8 @@ pnpm add -D tailwindcss @tailwindcss/vite typescript eslint prettier \
 
 ## Testing strategy
 
-- **Unit tests (Vitest):** All parsers, the search index builder, the memories join logic, the Dexie import function (with an in-memory Dexie mock).
-- **Component tests:** `<ImportScreen>` drop zone, `<MessageBubble>` content/null handling, `<MemoryCard>` overlay compositing.
+- **Unit tests (Vitest):** All parsers, the search index builder, the memories join logic, the Dexie import function (with an in-memory Dexie mock), geodata coordinate parser and clustering algorithms (`src/utils/geo.test.ts`).
+- **Component tests:** `<ImportScreen>` drop zone, `<MessageBubble>` content/null handling, `<MemoryCard>` overlay compositing, `<MapView>` Leaflet controls, cluster cards, and filter toggles (`src/views/map/map.test.tsx`).
 - **No E2E in v1** — the app is purely local and has no network layer to test against; unit + component coverage is sufficient.
 
 Run tests with:
@@ -450,24 +516,30 @@ pnpm test:run      # CI single-run
 
 ## Commit cadence summary
 
-| Commit                                                                    | Contents |
-| ------------------------------------------------------------------------- | -------- |
-| `chore: scaffold Vite + React + TS + Tailwind + tooling`                  | Phase 0  |
-| `feat(data): ingest pipeline, parsers, Dexie schema, search index`        | Phase 1  |
-| `feat(ui): app shell, design system, shared components`                   | Phase 2  |
-| `feat(views): chats view — contact list + conversation pane`              | Phase 3  |
-| `feat(views): memories gallery — masonry grid + lightbox`                 | Phase 4  |
-| `feat(views): stats view — activity charts, most-contacted, call summary` | Phase 5  |
-| `feat(search): global search overlay + filter integration`                | Phase 6  |
-| `feat(polish): empty states, error bounds, responsive layout, a11y`       | Phase 7  |
+| Commit                                                                        | Contents |
+| ----------------------------------------------------------------------------- | -------- |
+| `chore: scaffold Vite + React + TS + Tailwind + tooling`                      | Phase 0  |
+| `feat(data): ingest pipeline, parsers, Dexie schema, search index`            | Phase 1  |
+| `feat(ui): app shell, design system, shared components`                       | Phase 2  |
+| `feat(views): chats view — contact list + conversation pane`                  | Phase 3  |
+| `feat(views): memories gallery — masonry grid + lightbox`                     | Phase 4  |
+| `feat(views): stats view — activity charts, most-contacted, call summary`     | Phase 5  |
+| `feat(search): global search overlay + filter integration`                    | Phase 6  |
+| `feat(polish): empty states, error bounds, responsive layout, a11y`           | Phase 7  |
+| `feat(map): add memories location map view with leaflet`                      | Phase 8  |
+| `fix(map): resolve map container mounting and video tray thumbnail decoding` | Phase 8  |
+| `feat(map): support CARTO API key via environment variables`                 | Phase 8  |
 
 ---
 
 ## Design decisions — all resolved ✅
 
-| #   | Decision                   | Choice                                                                                           |
-| --- | -------------------------- | ------------------------------------------------------------------------------------------------ |
-| 1   | **Memories join strategy** | Files-drive; JSON is metadata-only. Files are primary source of truth.                           |
-| 2   | **Group chat display**     | Folded into the contact list (keyed by `Conversation Title` when non-null).                      |
-| 3   | **Charting approach**      | Hand-rolled SVG — `<BarChart>` and `<DonutChart>` in `src/components/charts/`.                   |
-| 4   | **Masonry layout**         | JS-calculated positions (`top`/`left`) with `ResizeObserver`; viewport-intersect virtualization. |
+| #   | Decision                           | Choice                                                                                                                   |
+| --- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| 1   | **Memories join strategy**         | Files-drive; JSON is metadata-only. Files are primary source of truth.                                                   |
+| 2   | **Group chat display**             | Folded into the contact list (keyed by `Conversation Title` when non-null).                                              |
+| 3   | **Charting approach**              | Hand-rolled SVG — `<BarChart>` and `<DonutChart>` in `src/components/charts/`.                                           |
+| 4   | **Masonry layout**                 | JS-calculated positions (`top`/`left`) with `ResizeObserver`; viewport-intersect virtualization.                         |
+| 5   | **Map rendering & tile provider**  | Leaflet with CARTO Dark Matter basemap (authenticated via `VITE_CARTO_API_KEY`), falling back to standard OpenStreetMap. |
+| 6   | **Map clustering strategy**        | Pure client-side dynamic grid clustering (`clusterGeoMemories`) adapting to zoom level (zero external geocoding calls).  |
+| 7   | **Video thumbnails in map tray**   | HTML5 `<video>` elements with Blob object URLs and `preload="metadata"` for local frame extraction.                     |
