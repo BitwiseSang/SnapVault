@@ -83,11 +83,11 @@ These are limitations of what Snapchat includes in its data export, not limitati
 
 ## Roadmap
 
-- [ ] Phase 1: folder-drop ingest, JSON parsing, unified data model, IndexedDB persistence
-- [ ] Phase 2: chat viewer + memories gallery + stats views
-- [ ] Phase 3: global search + filters
+- [x] Phase 1: folder-drop ingest, JSON parsing, unified data model, IndexedDB persistence
+- [x] Phase 2: chat viewer + memories gallery + stats views
+- [x] Phase 3: global search + filters
 - [ ] Phase 4: raw `.zip` drop support (in-browser unzip)
-- [ ] Phase 5: polish pass — animation, empty states, keyboard navigation
+- [x] Phase 5: polish pass — animation, empty states, keyboard navigation
 
 ## For coding agents
 
