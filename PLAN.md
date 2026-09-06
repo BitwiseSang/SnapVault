@@ -411,7 +411,7 @@ Every view needs a thoughtful empty state — not a blank white page.
 ### 7.6 — Final docs & README update
 
 - [x] Update `README.md` setup instructions to reference `pnpm`.
-- [ ] Add a screenshot or GIF to the README once the UI is stable.
+- [x] Add a screenshot or GIF to the README once the UI is stable.
 
 - [x] Commit: `feat(polish): empty states, error boundaries, responsive layout, a11y`
 

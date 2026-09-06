@@ -1,5 +1,6 @@
 # Snapchat export data — contains real private user data, NEVER commit
 sample_data/
+raw_screenshots/
 
 # Any directory that looks like a Snapchat export root
 # (has json/chat_history.json or a memories/ folder)
