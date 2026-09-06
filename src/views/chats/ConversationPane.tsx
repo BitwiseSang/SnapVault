@@ -88,6 +88,8 @@ export function ConversationPane({
     })
   }
 
+  const targetMsgId = searchParams.get('msgId')
+
   const isAllStream = contact === '__all__'
 
   // Filter events based on active category
@@ -113,21 +115,55 @@ export function ConversationPane({
   const virtualizer = useVirtualizer({
     count: filteredEvents.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 72,
-    overscan: 12,
+    estimateSize: (index) => {
+      const ev = filteredEvents[index]
+      if (!ev) return 64
+      let size = 56
+      const prevEv = index > 0 ? filteredEvents[index - 1] : undefined
+      const isNewDate =
+        index === 0 ||
+        (prevEv !== undefined && ev.timestamp.slice(0, 10) !== prevEv.timestamp.slice(0, 10))
+      if (isNewDate) {
+        size += 38
+      }
+      if (ev.type === 'snap' || ev.mediaType !== 'TEXT') {
+        size += 48
+      } else if (ev.content && ev.content.length > 70) {
+        size += Math.min(100, Math.floor(ev.content.length / 35) * 18)
+      }
+      return size
+    },
+    overscan: 25,
+    paddingStart: 16,
+    paddingEnd: 16,
     getItemKey: (index) => filteredEvents[index]?.id ?? index,
   })
 
-  // Auto-scroll to bottom on initial load if oldest_first
+  // Scroll to targeted search result message if msgId is in URL
   useEffect(() => {
-    if (sortOrder === 'oldest_first' && filteredEvents.length > 0 && parentRef.current) {
+    if (!targetMsgId || filteredEvents.length === 0) return
+
+    const idx = filteredEvents.findIndex((e) => e.id === targetMsgId)
+    if (idx !== -1) {
       setTimeout(() => {
-        if (parentRef.current) {
-          parentRef.current.scrollTop = parentRef.current.scrollHeight
-        }
+        virtualizer.scrollToIndex(idx, { align: 'center' })
+      }, 60)
+    }
+  }, [targetMsgId, filteredEvents, virtualizer])
+
+  // Auto-scroll to bottom on initial load if oldest_first and no msgId targeted
+  useEffect(() => {
+    if (
+      !targetMsgId &&
+      sortOrder === 'oldest_first' &&
+      filteredEvents.length > 0 &&
+      parentRef.current
+    ) {
+      setTimeout(() => {
+        virtualizer.scrollToIndex(filteredEvents.length - 1, { align: 'end' })
       }, 50)
     }
-  }, [contact, filteredEvents.length, sortOrder])
+  }, [contact, filteredEvents.length, sortOrder, targetMsgId, virtualizer])
 
   if (!contact) {
     return (
@@ -275,7 +311,7 @@ export function ConversationPane({
       </div>
 
       {/* Message Feed */}
-      <div ref={parentRef} className="flex-1 overflow-y-auto px-6 py-4 min-h-0">
+      <div ref={parentRef} className="flex-1 overflow-y-auto px-6 min-h-0">
         {isLoading ? (
           <div className="h-full flex items-center justify-center text-xs text-text-secondary">
             Loading conversation...
@@ -335,7 +371,11 @@ export function ConversationPane({
                       </span>
                     </div>
                   )}
-                  <MessageBubble event={event} showSenderName={isAllStream || summary?.isGroup} />
+                  <MessageBubble
+                    event={event}
+                    showSenderName={isAllStream || summary?.isGroup}
+                    isHighlighted={event.id === targetMsgId}
+                  />
                 </div>
               )
             })}

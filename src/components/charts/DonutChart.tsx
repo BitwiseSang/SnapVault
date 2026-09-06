@@ -23,7 +23,9 @@ export function DonutChart({
 }: DonutChartProps) {
   const [hoveredIdx, setHoveredIdx] = useState<number | null>(null)
 
-  const radius = (size - strokeWidth) / 2
+  // Leave padding so stroke expansion on hover (+4px) never clips outside viewBox
+  const hoverExpansion = 4
+  const radius = (size - strokeWidth - hoverExpansion * 2) / 2
   const circumference = 2 * Math.PI * radius
 
   const total = useMemo(() => {
@@ -36,7 +38,7 @@ export function DonutChart({
     return segments.map((s, i) => {
       const ratio = s.value / total
       const strokeLength = ratio * circumference
-      const strokeOffset = circumference - accumulated
+      const strokeOffset = -accumulated
       accumulated += strokeLength
 
       return {
@@ -58,7 +60,7 @@ export function DonutChart({
           width={size}
           height={size}
           viewBox={`0 0 ${size} ${size}`}
-          className="rotate-[-90deg] select-none"
+          className="rotate-[-90deg] select-none overflow-visible"
         >
           {/* Background circle track */}
           <circle
@@ -80,8 +82,8 @@ export function DonutChart({
               r={radius}
               fill="transparent"
               stroke={arc.color}
-              strokeWidth={hoveredIdx === arc.index ? strokeWidth + 4 : strokeWidth}
-              strokeDasharray={`${arc.strokeLength} ${circumference}`}
+              strokeWidth={hoveredIdx === arc.index ? strokeWidth + hoverExpansion : strokeWidth}
+              strokeDasharray={`${arc.strokeLength} ${circumference - arc.strokeLength}`}
               strokeDashoffset={arc.strokeOffset}
               onMouseEnter={() => setHoveredIdx(arc.index)}
               onMouseLeave={() => setHoveredIdx(null)}

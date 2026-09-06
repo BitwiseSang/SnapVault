@@ -17,6 +17,7 @@ import { MessageEvent, SnapEvent } from '../../models/events'
 interface MessageBubbleProps {
   event: TimelineEvent
   showSenderName?: boolean
+  isHighlighted?: boolean
 }
 
 function SnapCard({ event, isSent }: { event: SnapEvent; isSent: boolean }) {
@@ -236,7 +237,11 @@ function ShareCard({ event, isSent }: { event: MessageEvent; isSent: boolean }) 
   )
 }
 
-export function MessageBubble({ event, showSenderName = false }: MessageBubbleProps) {
+export function MessageBubble({
+  event,
+  showSenderName = false,
+  isHighlighted = false,
+}: MessageBubbleProps) {
   const isSent = event.direction === 'sent'
   const isSnap = event.type === 'snap'
 
@@ -309,9 +314,13 @@ export function MessageBubble({ event, showSenderName = false }: MessageBubblePr
 
   return (
     <div className={`flex flex-col ${isSent ? 'items-end' : 'items-start'} my-1 group`}>
-      {showSenderName && !isSent && event.contact && (
-        <span className="text-[11px] font-medium text-text-secondary mb-0.5 ml-2">
-          {event.contact}
+      {showSenderName && event.contact && (
+        <span
+          className={`text-[11px] font-medium text-text-secondary mb-0.5 ${
+            isSent ? 'mr-2' : 'ml-2'
+          }`}
+        >
+          {isSent ? `To: @${event.contact}` : `@${event.contact}`}
         </span>
       )}
 
@@ -320,7 +329,7 @@ export function MessageBubble({ event, showSenderName = false }: MessageBubblePr
           isSent
             ? 'bg-sent text-accent-fg font-medium rounded-br-xs'
             : 'bg-surface-raised border border-border text-text-primary rounded-bl-xs'
-        }`}
+        } ${isHighlighted ? 'ring-2 ring-accent ring-offset-2 ring-offset-bg shadow-lg animate-pulse' : ''}`}
       >
         {renderContent()}
 

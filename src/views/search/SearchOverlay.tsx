@@ -43,7 +43,7 @@ export function SearchOverlay() {
     if (doc.type === 'contact' && doc.contact) {
       navigate(`/chats/${encodeURIComponent(doc.contact)}`)
     } else if (doc.type === 'message' && doc.contact) {
-      navigate(`/chats/${encodeURIComponent(doc.contact)}`)
+      navigate(`/chats/${encodeURIComponent(doc.contact)}?msgId=${encodeURIComponent(doc.id)}`)
     } else if (doc.type === 'memory') {
       navigate('/memories')
     }
