@@ -1,7 +1,9 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
+import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { MessageBubble } from '../../../src/views/chats/MessageBubble'
 import { compareContacts, ContactList } from '../../../src/views/chats/ContactList'
+import { ConversationPane } from '../../../src/views/chats/ConversationPane'
 import { ContactSummary } from '../../../src/db/db'
 import { MessageEvent, SnapEvent } from '../../../src/models/events'
 
@@ -245,5 +247,193 @@ describe('ContactList component', () => {
     // Toggle direction button
     const directionButton = screen.getByLabelText(/invert sort direction/i)
     fireEvent.click(directionButton)
+  })
+})
+
+describe('ConversationPane component', () => {
+  beforeEach(() => {
+    vi.spyOn(HTMLElement.prototype, 'offsetHeight', 'get').mockReturnValue(600)
+    vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(800)
+  })
+
+  const mockEvents: MessageEvent[] = [
+    {
+      id: 'msg_1',
+      type: 'message',
+      timestamp: '2026-09-01T10:00:00.000Z',
+      contact: 'alice',
+      direction: 'received',
+      mediaType: 'TEXT',
+      content: 'Hello Alice 1',
+      isSaved: false,
+      mediaIds: '',
+      conversationTitle: null,
+    },
+    {
+      id: 'msg_2',
+      type: 'message',
+      timestamp: '2026-09-02T10:00:00.000Z',
+      contact: 'alice',
+      direction: 'sent',
+      mediaType: 'TEXT',
+      content: 'Hello Alice 2',
+      isSaved: true,
+      mediaIds: '',
+      conversationTitle: null,
+    },
+    {
+      id: 'msg_3',
+      type: 'message',
+      timestamp: '2026-09-03T10:00:00.000Z',
+      contact: 'alice',
+      direction: 'received',
+      mediaType: 'MEDIA',
+      content: null,
+      isSaved: false,
+      mediaIds: 'xyz',
+      conversationTitle: null,
+    },
+  ]
+
+  it('renders empty state when no contact is selected', () => {
+    render(
+      <MemoryRouter>
+        <ConversationPane contact={null} events={[]} isLoading={false} />
+      </MemoryRouter>,
+    )
+    expect(screen.getByText('No conversation selected')).toBeDefined()
+  })
+
+  it('renders loading state when isLoading is true', () => {
+    render(
+      <MemoryRouter>
+        <ConversationPane contact="alice" events={[]} isLoading={true} />
+      </MemoryRouter>,
+    )
+    expect(screen.getByText('Loading conversation...')).toBeDefined()
+  })
+
+  it('renders message events when loaded', () => {
+    render(
+      <MemoryRouter>
+        <ConversationPane contact="alice" events={mockEvents} isLoading={false} />
+      </MemoryRouter>,
+    )
+    expect(screen.getByText('Hello Alice 1')).toBeDefined()
+    expect(screen.getByText('Hello Alice 2')).toBeDefined()
+  })
+
+  it('filters by category when filter buttons are clicked', () => {
+    render(
+      <MemoryRouter>
+        <ConversationPane contact="alice" events={mockEvents} isLoading={false} />
+      </MemoryRouter>,
+    )
+    // Click Text Messages filter
+    const textFilterBtn = screen.getByRole('button', { name: /text messages/i })
+    fireEvent.click(textFilterBtn)
+    expect(screen.getByText('Hello Alice 1')).toBeDefined()
+    expect(screen.getByText('Hello Alice 2')).toBeDefined()
+
+    // Click Saved filter
+    const savedFilterBtn = screen.getByRole('button', { name: /saved/i })
+    fireEvent.click(savedFilterBtn)
+    expect(screen.queryByText('Hello Alice 1')).toBeNull()
+    expect(screen.getByText('Hello Alice 2')).toBeDefined()
+  })
+
+  it('toggles sort order when sort button is clicked', () => {
+    render(
+      <MemoryRouter initialEntries={['/chats/alice']}>
+        <Routes>
+          <Route
+            path="/chats/:contact"
+            element={<ConversationPane contact="alice" events={mockEvents} isLoading={false} />}
+          />
+        </Routes>
+      </MemoryRouter>,
+    )
+    const sortBtn = screen.getByRole('button', { name: /sorting:/i })
+    expect(sortBtn).toBeDefined()
+    fireEvent.click(sortBtn)
+  })
+
+  it('highlights target message when msgId is in search params', () => {
+    const { container } = render(
+      <MemoryRouter initialEntries={['/chats/alice?msgId=msg_2']}>
+        <Routes>
+          <Route
+            path="/chats/:contact"
+            element={<ConversationPane contact="alice" events={mockEvents} isLoading={false} />}
+          />
+        </Routes>
+      </MemoryRouter>,
+    )
+    const highlighted = container.querySelector('.ring-accent')
+    expect(highlighted).not.toBeNull()
+  })
+
+  it('triggers scroll to bottom on initial load', () => {
+    const rafSpy = vi.spyOn(window, 'requestAnimationFrame')
+    render(
+      <MemoryRouter initialEntries={['/chats/alice']}>
+        <Routes>
+          <Route
+            path="/chats/:contact"
+            element={<ConversationPane contact="alice" events={mockEvents} isLoading={false} />}
+          />
+        </Routes>
+      </MemoryRouter>,
+    )
+    expect(rafSpy).toHaveBeenCalled()
+    rafSpy.mockRestore()
+  })
+
+  it('triggers scroll to bottom when sort order is newest_first', () => {
+    const rafSpy = vi.spyOn(window, 'requestAnimationFrame')
+    render(
+      <MemoryRouter initialEntries={['/chats/alice?sort=newest_first']}>
+        <Routes>
+          <Route
+            path="/chats/:contact"
+            element={<ConversationPane contact="alice" events={mockEvents} isLoading={false} />}
+          />
+        </Routes>
+      </MemoryRouter>,
+    )
+    expect(rafSpy).toHaveBeenCalled()
+    rafSpy.mockRestore()
+  })
+
+  it('renders large message histories without manual batching limits', () => {
+    const manyEvents: MessageEvent[] = Array.from({ length: 200 }, (_, i) => ({
+      id: `bulk_msg_${i}`,
+      type: 'message',
+      timestamp: new Date(2026, 0, 1, 0, i).toISOString(),
+      contact: 'alice',
+      direction: i % 2 === 0 ? 'sent' : 'received',
+      mediaType: 'TEXT',
+      content: `Message number ${i}`,
+      isSaved: false,
+      mediaIds: '',
+      conversationTitle: null,
+    }))
+
+    render(
+      <MemoryRouter initialEntries={['/chats/alice']}>
+        <Routes>
+          <Route
+            path="/chats/:contact"
+            element={<ConversationPane contact="alice" events={manyEvents} isLoading={false} />}
+          />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    // Verify beginning of conversation marker exists for the whole list
+    expect(screen.getByText('Beginning of conversation')).toBeDefined()
+    // Verify there are no "Loading earlier messages..." buttons since all events are fully virtualized
+    expect(screen.queryByText('Loading earlier messages...')).toBeNull()
+    expect(screen.queryByText('Loading older messages...')).toBeNull()
   })
 })

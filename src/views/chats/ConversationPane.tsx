@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, useCallback, type UIEvent } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useSearchParams } from 'react-router-dom'
 import {
@@ -74,6 +74,7 @@ export function ConversationPane({
       const next = new URLSearchParams(prev)
       if (f === 'ALL') next.delete('filter')
       else next.set('filter', f)
+      next.delete('msgId')
       return next
     })
   }
@@ -84,6 +85,7 @@ export function ConversationPane({
       const newSort = sortOrder === 'oldest_first' ? 'newest_first' : 'oldest_first'
       if (newSort === 'oldest_first') next.delete('sort')
       else next.set('sort', newSort)
+      next.delete('msgId')
       return next
     })
   }
@@ -111,88 +113,17 @@ export function ConversationPane({
     return [...list].sort((a, b) => a.timestamp.localeCompare(b.timestamp))
   }, [events, filter, sortOrder])
 
-  const BATCH_SIZE = 80
-
-  const [visibleCount, setVisibleCount] = useState(BATCH_SIZE)
-  const [prevKey, setPrevKey] = useState(`${contact}-${filter}-${sortOrder}`)
-  const currentKey = `${contact}-${filter}-${sortOrder}`
-
-  // Reset batch size if conversation context changes
-  if (prevKey !== currentKey) {
-    setPrevKey(currentKey)
-    setVisibleCount(BATCH_SIZE)
-  }
-
-  // If a specific message was requested via search, ensure it's in the visible slice
-  const targetIdxInFull = useMemo(() => {
-    if (!targetMsgId) return -1
-    return filteredEvents.findIndex((e) => e.id === targetMsgId)
-  }, [filteredEvents, targetMsgId])
-
-  const effectiveVisibleCount = useMemo(() => {
-    if (targetIdxInFull === -1) return visibleCount
-    if (sortOrder === 'oldest_first') {
-      const neededFromEnd = filteredEvents.length - targetIdxInFull + 40
-      return Math.max(visibleCount, neededFromEnd)
-    } else {
-      const neededFromStart = targetIdxInFull + 40
-      return Math.max(visibleCount, neededFromStart)
-    }
-  }, [visibleCount, targetIdxInFull, sortOrder, filteredEvents.length])
-
-  // Windowed events slice
-  const startIndex = useMemo(() => {
-    if (sortOrder === 'oldest_first') {
-      return Math.max(0, filteredEvents.length - effectiveVisibleCount)
-    }
-    return 0
-  }, [sortOrder, filteredEvents.length, effectiveVisibleCount])
-
-  const visibleEvents = useMemo(() => {
-    if (sortOrder === 'oldest_first') {
-      return filteredEvents.slice(startIndex)
-    }
-    return filteredEvents.slice(0, effectiveVisibleCount)
-  }, [filteredEvents, sortOrder, startIndex, effectiveVisibleCount])
-
-  const hasOlderMessages = useMemo(() => {
-    if (sortOrder === 'oldest_first') {
-      return startIndex > 0
-    }
-    return effectiveVisibleCount < filteredEvents.length
-  }, [sortOrder, startIndex, effectiveVisibleCount, filteredEvents.length])
-
-  const loadMore = useCallback(() => {
-    if (!hasOlderMessages) return
-    setVisibleCount((prev) => Math.min(filteredEvents.length, prev + BATCH_SIZE))
-  }, [hasOlderMessages, filteredEvents.length])
-
-  const handleScroll = (e: UIEvent<HTMLDivElement>) => {
-    const el = e.currentTarget
-    if (sortOrder === 'oldest_first') {
-      if (el.scrollTop < 250 && hasOlderMessages) {
-        loadMore()
-      }
-    } else {
-      const distFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
-      if (distFromBottom < 250 && hasOlderMessages) {
-        loadMore()
-      }
-    }
-  }
-
-  // Virtualizer for high-performance rendering of windowed messages with dynamic measurement
+  // Virtualizer for high-performance rendering of messages with dynamic measurement
   const virtualizer = useVirtualizer({
-    count: visibleEvents.length,
+    count: filteredEvents.length,
     getScrollElement: () => parentRef.current,
     estimateSize: (index) => {
-      const ev = visibleEvents[index]
+      const ev = filteredEvents[index]
       if (!ev) return 64
       let size = 56
-      const globalIndex = sortOrder === 'oldest_first' ? startIndex + index : index
-      const prevEv = globalIndex > 0 ? filteredEvents[globalIndex - 1] : undefined
+      const prevEv = index > 0 ? filteredEvents[index - 1] : undefined
       const isNewDate =
-        globalIndex === 0 ||
+        index === 0 ||
         (prevEv !== undefined && ev.timestamp.slice(0, 10) !== prevEv.timestamp.slice(0, 10))
       if (isNewDate) {
         size += 38
@@ -204,7 +135,7 @@ export function ConversationPane({
       }
       if (
         (sortOrder === 'oldest_first' && index === 0) ||
-        (sortOrder === 'newest_first' && index === visibleEvents.length - 1)
+        (sortOrder === 'newest_first' && index === filteredEvents.length - 1)
       ) {
         size += 36
       }
@@ -213,37 +144,50 @@ export function ConversationPane({
     overscan: 20,
     paddingStart: 16,
     paddingEnd: 16,
-    anchorTo: sortOrder === 'oldest_first' ? 'end' : 'start',
-    followOnAppend: true,
-    scrollEndThreshold: 80,
-    getItemKey: (index) => visibleEvents[index]?.id ?? index,
+    getItemKey: (index) => filteredEvents[index]?.id ?? index,
   })
 
-  const hasAutoScrolledRef = useRef<string | null>(null)
+  const lastScrolledKeyRef = useRef<string | null>(null)
+  const lastScrolledMsgIdRef = useRef<string | null>(null)
 
-  // Scroll to targeted search result message if msgId is in URL
+  const currentScrollKey = `${contact}-${filter}-${sortOrder}`
+
+  // Reset target message scroll tracker if targetMsgId changes or is removed
   useEffect(() => {
-    if (!targetMsgId || visibleEvents.length === 0) return
-
-    const idx = visibleEvents.findIndex((e) => e.id === targetMsgId)
-    if (idx !== -1) {
-      setTimeout(() => {
-        virtualizer.scrollToIndex(idx, { align: 'center' })
-      }, 60)
+    if (!targetMsgId) {
+      lastScrolledMsgIdRef.current = null
     }
-  }, [targetMsgId, visibleEvents, virtualizer])
+  }, [targetMsgId])
 
-  // Auto-scroll to bottom only on conversation switch
+  // Scroll effect: handles one-time centering on target search message,
+  // or scrolling to the bottom on conversation switch, sort change, or filter change.
   useEffect(() => {
-    if (targetMsgId || sortOrder !== 'oldest_first' || visibleEvents.length === 0) return
+    if (isLoading || filteredEvents.length === 0) return
 
-    if (hasAutoScrolledRef.current !== currentKey) {
-      hasAutoScrolledRef.current = currentKey
-      setTimeout(() => {
-        virtualizer.scrollToIndex(visibleEvents.length - 1, { align: 'end' })
-      }, 40)
+    if (targetMsgId) {
+      if (lastScrolledMsgIdRef.current !== targetMsgId) {
+        const idx = filteredEvents.findIndex((e) => e.id === targetMsgId)
+        if (idx !== -1) {
+          lastScrolledMsgIdRef.current = targetMsgId
+          lastScrolledKeyRef.current = currentScrollKey
+          requestAnimationFrame(() => {
+            virtualizer.scrollToIndex(idx, { align: 'center' })
+          })
+        }
+      }
+      return
     }
-  }, [currentKey, visibleEvents.length, sortOrder, targetMsgId, virtualizer])
+
+    if (lastScrolledKeyRef.current !== currentScrollKey) {
+      lastScrolledKeyRef.current = currentScrollKey
+      requestAnimationFrame(() => {
+        virtualizer.scrollToIndex(filteredEvents.length - 1, { align: 'end' })
+        if (parentRef.current) {
+          parentRef.current.scrollTop = parentRef.current.scrollHeight
+        }
+      })
+    }
+  }, [isLoading, filteredEvents, targetMsgId, currentScrollKey, virtualizer])
 
   if (!contact) {
     return (
@@ -393,7 +337,6 @@ export function ConversationPane({
       {/* Message Feed */}
       <div
         ref={parentRef}
-        onScroll={handleScroll}
         style={{ overflowAnchor: 'none' }}
         className="flex-1 overflow-y-auto px-6 min-h-0"
       >
@@ -426,22 +369,20 @@ export function ConversationPane({
             }}
           >
             {virtualizer.getVirtualItems().map((virtualRow) => {
-              const event = visibleEvents[virtualRow.index]
+              const event = filteredEvents[virtualRow.index]
               if (!event) return null
 
-              const globalIndex =
-                sortOrder === 'oldest_first' ? startIndex + virtualRow.index : virtualRow.index
-              const prevEvent = globalIndex > 0 ? filteredEvents[globalIndex - 1] : undefined
+              const prevEvent =
+                virtualRow.index > 0 ? filteredEvents[virtualRow.index - 1] : undefined
               const showDateSeparator =
-                globalIndex === 0 ||
+                virtualRow.index === 0 ||
                 (prevEvent !== undefined &&
                   event.timestamp.slice(0, 10) !== prevEvent.timestamp.slice(0, 10))
 
               const isBeginningOfConversation =
-                !hasOlderMessages &&
-                (sortOrder === 'oldest_first'
+                sortOrder === 'oldest_first'
                   ? virtualRow.index === 0
-                  : virtualRow.index === visibleEvents.length - 1)
+                  : virtualRow.index === filteredEvents.length - 1
 
               return (
                 <div
@@ -456,16 +397,6 @@ export function ConversationPane({
                     transform: `translateY(${virtualRow.start}px)`,
                   }}
                 >
-                  {virtualRow.index === 0 && hasOlderMessages && sortOrder === 'oldest_first' && (
-                    <div className="flex justify-center my-3 select-none">
-                      <button
-                        onClick={loadMore}
-                        className="px-3 py-1 rounded-full text-[11px] font-medium bg-surface-raised/80 hover:bg-surface-raised border border-border text-text-secondary cursor-pointer transition shadow-2xs"
-                      >
-                        Loading earlier messages...
-                      </button>
-                    </div>
-                  )}
                   {isBeginningOfConversation && sortOrder === 'oldest_first' && (
                     <div className="flex justify-center my-4 select-none">
                       <span className="px-3 py-1 rounded-full text-[10px] uppercase tracking-wider font-semibold bg-surface-raised/50 border border-border/50 text-text-tertiary">
@@ -485,18 +416,6 @@ export function ConversationPane({
                     showSenderName={isAllStream || summary?.isGroup}
                     isHighlighted={event.id === targetMsgId}
                   />
-                  {virtualRow.index === visibleEvents.length - 1 &&
-                    hasOlderMessages &&
-                    sortOrder === 'newest_first' && (
-                      <div className="flex justify-center my-3 select-none">
-                        <button
-                          onClick={loadMore}
-                          className="px-3 py-1 rounded-full text-[11px] font-medium bg-surface-raised/80 hover:bg-surface-raised border border-border text-text-secondary cursor-pointer transition shadow-2xs"
-                        >
-                          Loading older messages...
-                        </button>
-                      </div>
-                    )}
                   {isBeginningOfConversation && sortOrder === 'newest_first' && (
                     <div className="flex justify-center my-4 select-none">
                       <span className="px-3 py-1 rounded-full text-[10px] uppercase tracking-wider font-semibold bg-surface-raised/50 border border-border/50 text-text-tertiary">

@@ -15,6 +15,7 @@ export function ChatsView() {
 
   const [contacts, setContacts] = useState<ContactSummary[]>([])
   const [events, setEvents] = useState<TimelineEvent[]>([])
+  const [eventsContact, setEventsContact] = useState<string | null>(null)
   const [isLoadingContacts, setIsLoadingContacts] = useState(true)
   const [isLoadingEvents, setIsLoadingEvents] = useState(false)
 
@@ -56,6 +57,7 @@ export function ChatsView() {
       .then((res) => {
         if (isMounted) {
           setEvents(res)
+          setEventsContact(activeContact)
           setIsLoadingEvents(false)
         }
       })
@@ -91,7 +93,9 @@ export function ChatsView() {
     )
   }
 
-  const displayedEvents = activeContact ? events : []
+  const displayedEvents = activeContact && eventsContact === activeContact ? events : []
+  const isPaneLoading =
+    isLoadingEvents || (Boolean(activeContact) && eventsContact !== activeContact)
 
   return (
     <div className="flex-1 flex h-full min-w-0 overflow-hidden">
@@ -113,7 +117,7 @@ export function ChatsView() {
           contact={activeContact}
           summary={activeSummary}
           events={displayedEvents}
-          isLoading={isLoadingEvents}
+          isLoading={isPaneLoading}
           onBack={() => navigate('/chats')}
         />
       </div>
