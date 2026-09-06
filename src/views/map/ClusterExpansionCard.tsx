@@ -166,20 +166,22 @@ export function ClusterExpansionCard({
         </div>
       </div>
 
-      {/* Scrollable grid of memories */}
-      <div className="p-3 overflow-y-auto min-h-0 max-h-72 sm:max-h-84 grid grid-cols-2 sm:grid-cols-3 gap-2">
-        {visibleItems.map((m) => (
-          <ClusterItemThumbnail
-            key={m.id}
-            memory={m}
-            isSelected={selectedMemory?.id === m.id}
-            onClick={() => onSelectMemory(m)}
-            onOpenLightbox={() => onOpenLightbox(m)}
-          />
-        ))}
+      {/* Scrollable container for memories grid */}
+      <div className="p-3 overflow-y-auto min-h-0 max-h-72 sm:max-h-84 flex flex-col gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          {visibleItems.map((m) => (
+            <ClusterItemThumbnail
+              key={m.id}
+              memory={m}
+              isSelected={selectedMemory?.id === m.id}
+              onClick={() => onSelectMemory(m)}
+              onOpenLightbox={() => onOpenLightbox(m)}
+            />
+          ))}
+        </div>
 
         {hasMore && (
-          <div className="col-span-full py-1.5 text-center">
+          <div className="py-1.5 text-center">
             <button
               onClick={() => setVisibleLimit((prev) => prev + 30)}
               className="w-full py-1.5 px-3 rounded-xl bg-surface-raised hover:bg-surface border border-border text-text-primary text-xs font-semibold transition cursor-pointer"

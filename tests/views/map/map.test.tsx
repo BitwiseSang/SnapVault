@@ -131,6 +131,45 @@ describe('ClusterExpansionCard', () => {
     fireEvent.click(screen.getByLabelText('Close cluster view'))
     expect(onClose).toHaveBeenCalledTimes(1)
   })
+
+  it('supports pagination with load more button for clusters with many memories', () => {
+    const manyItems: GeoMemoryEvent[] = Array.from({ length: 40 }, (_, i) => ({
+      id: `mem_${i}`,
+      type: 'memory',
+      timestamp: '2026-08-19T12:00:00.000Z',
+      mediaFile: `memories/${i}.jpg`,
+      mediaKind: 'Image',
+      location: 'Latitude, Longitude: 0.556, 35.245',
+      coordinates: { lat: 0.556, lng: 35.245 },
+    }))
+
+    const clusterWithMany: GeoCluster = {
+      id: 'cluster_many',
+      center: { lat: 0.556, lng: 35.245 },
+      isCluster: true,
+      items: manyItems,
+    }
+
+    render(
+      <ClusterExpansionCard
+        cluster={clusterWithMany}
+        selectedMemoryId="mem_0"
+        onSelectMemory={vi.fn()}
+        onOpenLightbox={vi.fn()}
+        onZoomIn={vi.fn()}
+        onClose={vi.fn()}
+      />,
+    )
+
+    expect(screen.getByText('40 Memories at this Location')).toBeDefined()
+    expect(screen.getByText('Load more (10 remaining)')).toBeDefined()
+
+    // Click load more
+    fireEvent.click(screen.getByText('Load more (10 remaining)'))
+
+    // Button should be gone as all 40 are visible
+    expect(screen.queryByText(/Load more/i)).toBeNull()
+  })
 })
 
 describe('MapHoverPreview', () => {
