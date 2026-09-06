@@ -2,8 +2,6 @@
 
 A local-first, private web app for browsing your own exported Snapchat data — chats, snaps, calls, and memories — in one unified, searchable interface, instead of Snapchat's default export of dozens of isolated per-contact HTML pages.
 
-> Working title. Rename freely in `package.json` once something better sticks.
-
 ## Why this exists
 
 Snapchat's "Download My Data" export gives you two things:

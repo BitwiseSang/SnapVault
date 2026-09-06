@@ -1,4 +1,5 @@
-import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { useEffect } from 'react'
+import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom'
 import {
   MessageSquare,
   Image as ImageIcon,
@@ -17,6 +18,25 @@ import { SearchOverlay } from '../views/search/SearchOverlay'
 export function MainLayout() {
   const { theme, toggleTheme, meta, setIsSearchOpen } = useApp()
   const navigate = useNavigate()
+  const location = useLocation()
+
+  // Update document title dynamically based on active route
+  useEffect(() => {
+    const path = location.pathname
+    if (path.startsWith('/chats')) {
+      const parts = path.split('/chats/')
+      const contact = parts[1] ? decodeURIComponent(parts[1]) : ''
+      document.title = contact ? `${contact} — Chats | SnapVault` : 'Chats | SnapVault'
+    } else if (path.startsWith('/memories')) {
+      document.title = 'Memories | SnapVault'
+    } else if (path.startsWith('/map')) {
+      document.title = 'Snap Map | SnapVault'
+    } else if (path.startsWith('/stats')) {
+      document.title = 'Stats | SnapVault'
+    } else {
+      document.title = 'SnapVault — Offline Snapchat Archive Explorer'
+    }
+  }, [location.pathname])
 
   const navItems = [
     {

@@ -1,4 +1,4 @@
-import { ChangeEvent, DragEvent, useState } from 'react'
+import { ChangeEvent, DragEvent, useEffect, useState } from 'react'
 import { FolderUp, ShieldCheck, AlertCircle, Sparkles, FolderArchive } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import {
@@ -17,6 +17,10 @@ export function ImportScreen() {
   const [error, setError] = useState<string | null>(null)
   const navigate = useNavigate()
   const { refreshData } = useApp()
+
+  useEffect(() => {
+    document.title = 'Import Archive | SnapVault'
+  }, [])
 
   const processIngest = async (sourcePromise: Promise<unknown> | unknown) => {
     setError(null)
