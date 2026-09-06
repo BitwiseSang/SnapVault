@@ -47,6 +47,13 @@ If sample data is present in `sample_data/`, use it for cross-checking only — 
 
 This also applies to any other directory that looks like a Snapchat export (containing `json/chat_history.json`, `memories/`, etc.) — treat such directories as private data and keep them out of version control.
 
+## Git commit conventions — critical
+
+- All commits must strictly follow the **Conventional Commits** specification (e.g. `feat(...)`, `fix(...)`, `refactor(...)`, `docs(...)`, `chore(...)`, `test(...)`, `ci(...)`).
+- **Commit Title Limit**: The commit title (subject line) must be **no more than 50 characters** long.
+- **Commit Body Required**: Every commit must include both a title and an explanatory body separated by a blank line.
+- Both the title and body must adhere to the Conventional Commits specification, describing the motivation, implementation details, and impact of the changes.
+
 ## Testing expectations
 
 - Parsers (`src/parsers/`) are the highest-risk, highest-value place for unit tests — they're the layer most likely to break silently against real-world schema quirks (missing fields, unexpected nulls, orphaned overlay files). Prioritize tests here over UI component tests.

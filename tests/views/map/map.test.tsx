@@ -10,6 +10,7 @@ import L from 'leaflet'
 
 vi.mock('../../../src/db/db', () => ({
   getGeoMemories: vi.fn(),
+  getMediaBlob: vi.fn().mockResolvedValue(null),
 }))
 
 vi.mock('../../../src/app/AppContext', () => ({
@@ -112,6 +113,8 @@ describe('ClusterExpansionCard', () => {
     expect(screen.getByText('2 Memories at this Location')).toBeDefined()
     expect(screen.getByText(/0.5560° N, 35.2450° E/)).toBeDefined()
     expect(screen.getByText('Open Fullscreen')).toBeDefined()
+    expect(screen.getByText('Selected Photo')).toBeDefined()
+    expect(screen.getByText('2 memories in this cluster')).toBeDefined()
 
     // Test select memory
     const items = screen.getAllByText('Aug 19, 26')
@@ -119,6 +122,10 @@ describe('ClusterExpansionCard', () => {
       fireEvent.click(items[1])
       expect(onSelect).toHaveBeenCalledWith(mockCluster.items[1])
     }
+
+    // Test open fullscreen lightbox from footer
+    fireEvent.click(screen.getByText('Open Fullscreen'))
+    expect(onOpenLightbox).toHaveBeenCalledWith(mockCluster.items[0])
 
     // Test close
     fireEvent.click(screen.getByLabelText('Close cluster view'))
@@ -220,7 +227,8 @@ describe('MapView', () => {
     ])
 
     render(<MapView />)
-    expect(await screen.findByText('Snap Map')).toBeDefined()
+    expect(await screen.findByText(/1 memory/i)).toBeDefined()
+    expect(divIconSpy.mock.calls.length).toBeGreaterThan(0)
 
     for (const call of divIconSpy.mock.calls) {
       const html = call[0]?.html || ''
@@ -287,12 +295,79 @@ describe('MapView', () => {
     expect(thumbButton).toBeDefined()
     fireEvent.click(thumbButton!)
 
-    // Verify divIcon was called with selected highlight ring
+    // Verify divIcon was called with selected sky-blue highlight
     const selectedIconCall = divIconSpy.mock.calls.find((call) =>
       call[0]?.className?.includes('selected'),
     )
     expect(selectedIconCall).toBeDefined()
-    expect(selectedIconCall![0]?.html).toContain('ring-white')
+    expect(selectedIconCall![0]?.html).toContain('bg-[#38bdf8]')
+  })
+
+  it('isolates fullscreen lightbox to cluster items when opened from cluster expansion card', async () => {
+    const markerSpy = vi.spyOn(L, 'marker')
+
+    vi.mocked(getGeoMemories).mockResolvedValue([
+      {
+        id: 'mem_cluster_1',
+        type: 'memory',
+        timestamp: '2026-08-19T12:00:00.000Z',
+        mediaFile: 'memories/cluster1.jpg',
+        mediaKind: 'Image',
+        location: 'Latitude, Longitude: 0.556, 35.245',
+        coordinates: { lat: 0.556, lng: 35.245 },
+      },
+      {
+        id: 'mem_cluster_2',
+        type: 'memory',
+        timestamp: '2026-08-19T13:00:00.000Z',
+        mediaFile: 'memories/cluster2.jpg',
+        mediaKind: 'Image',
+        location: 'Latitude, Longitude: 0.556, 35.245',
+        coordinates: { lat: 0.556, lng: 35.245 },
+      },
+      {
+        id: 'mem_other_3',
+        type: 'memory',
+        timestamp: '2026-08-20T14:00:00.000Z',
+        mediaFile: 'memories/other3.jpg',
+        mediaKind: 'Image',
+        location: 'Latitude, Longitude: 51.5074, -0.1278',
+        coordinates: { lat: 51.5074, lng: -0.1278 },
+      },
+    ])
+
+    render(<MapView />)
+    expect(await screen.findByText(/3 memories/i)).toBeDefined()
+
+    expect(markerSpy.mock.results.length).toBeGreaterThan(0)
+    const clusterMarker = markerSpy.mock.results
+      .map((r) => r.value as L.Marker)
+      .find((m) => {
+        const pos = m?.getLatLng?.()
+        return pos && Math.abs(pos.lat - 0.556) < 0.01
+      })
+    expect(clusterMarker).toBeDefined()
+
+    // Click cluster marker to open expansion modal
+    clusterMarker!.fire('click')
+
+    // Verify cluster expansion card is displayed
+    expect(await screen.findByText('2 Memories at this Location')).toBeDefined()
+    expect(screen.getByText('2 memories in this cluster')).toBeDefined()
+
+    // Click 'Open Fullscreen' in the cluster modal
+    fireEvent.click(screen.getByText('Open Fullscreen'))
+
+    // Lightbox should show count matching the cluster (2), NOT total memories (3)
+    expect(screen.getByText('1 / 2')).toBeDefined()
+
+    // Navigate to next item in lightbox: should show 2 / 2
+    fireEvent.click(screen.getByLabelText(/next memory/i))
+    expect(screen.getByText('2 / 2')).toBeDefined()
+
+    // Next again should loop back within cluster: 1 / 2
+    fireEvent.click(screen.getByLabelText(/next memory/i))
+    expect(screen.getByText('1 / 2')).toBeDefined()
   })
 
   it('appends api key to tile layer URL when VITE_CARTO_API_KEY is configured', async () => {

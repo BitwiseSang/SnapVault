@@ -134,6 +134,7 @@ export function MapView() {
     height: 600,
   })
   const [activeLightboxIndex, setActiveLightboxIndex] = useState<number | null>(null)
+  const [lightboxContext, setLightboxContext] = useState<GeoMemoryEvent[] | null>(null)
   const [isTrayOpen, setIsTrayOpen] = useState(false)
   const [currentZoom, setCurrentZoom] = useState<number>(3)
   const [tileModeOverride, setTileModeOverride] = useState<'dark' | 'light' | null>(null)
@@ -330,14 +331,13 @@ export function MapView() {
             className: 'snap-map-cluster-marker-selected',
             html: `
               <div class="relative flex items-center justify-center cursor-pointer select-none">
-                <div class="absolute -inset-1.5 rounded-full ring-4 ring-white shadow-2xl bg-white/25"></div>
-                <div class="${badgeClass} rounded-full bg-[#FFFC00] text-black font-black flex items-center justify-center shadow-2xl border-2 border-black scale-110">
+                <div class="${badgeClass} rounded-full bg-[#38bdf8] text-slate-950 font-black flex items-center justify-center shadow-xl border-2 border-white scale-110">
                   ${count}
                 </div>
               </div>
             `,
-            iconSize: [44, 44],
-            iconAnchor: [22, 22],
+            iconSize: [40, 40],
+            iconAnchor: [20, 20],
           })
         } else {
           clusterIcon = L.divIcon({
@@ -401,12 +401,11 @@ export function MapView() {
             className: 'snap-map-single-marker-selected',
             html: `
               <div class="relative flex items-center justify-center cursor-pointer select-none">
-                <div class="absolute -inset-2 rounded-full ring-4 ring-white shadow-2xl bg-white/30"></div>
-                <div class="w-6 h-6 rounded-full bg-[#FFFC00] border-2 border-black shadow-xl scale-110"></div>
+                <div class="w-6 h-6 rounded-full bg-[#38bdf8] border-2 border-white shadow-xl scale-110 flex items-center justify-center"></div>
               </div>
             `,
-            iconSize: [36, 36],
-            iconAnchor: [18, 18],
+            iconSize: [26, 26],
+            iconAnchor: [13, 13],
           })
         } else {
           // Clean yellow circle without pulsating effect
@@ -486,33 +485,38 @@ export function MapView() {
   }
 
   // Open lightbox
-  const handleOpenLightbox = (memoryToOpen?: GeoMemoryEvent) => {
+  const handleOpenLightbox = (memoryToOpen?: GeoMemoryEvent, clusterContext?: GeoMemoryEvent[]) => {
+    const list = clusterContext ?? filteredMemories
+    setLightboxContext(clusterContext ?? null)
     const target = memoryToOpen ?? selectedMemory
     if (!target) return
-    const idx = filteredMemories.findIndex((m) => m.id === target.id)
+    const idx = list.findIndex((m) => m.id === target.id)
     setActiveLightboxIndex(idx >= 0 ? idx : 0)
   }
 
   const handleCloseLightbox = () => {
     setActiveLightboxIndex(null)
+    setLightboxContext(null)
   }
+
+  const currentLightboxItems = lightboxContext ?? filteredMemories
 
   const handlePrevLightbox = () => {
     setActiveLightboxIndex((prev) => {
       if (prev === null) return null
-      return prev > 0 ? prev - 1 : filteredMemories.length - 1
+      return prev > 0 ? prev - 1 : currentLightboxItems.length - 1
     })
   }
 
   const handleNextLightbox = () => {
     setActiveLightboxIndex((prev) => {
       if (prev === null) return null
-      return prev < filteredMemories.length - 1 ? prev + 1 : 0
+      return prev < currentLightboxItems.length - 1 ? prev + 1 : 0
     })
   }
 
   const activeLightboxMemory =
-    activeLightboxIndex !== null ? (filteredMemories[activeLightboxIndex] ?? null) : null
+    activeLightboxIndex !== null ? (currentLightboxItems[activeLightboxIndex] ?? null) : null
 
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden bg-bg relative">
@@ -643,6 +647,7 @@ export function MapView() {
         {expandedCluster && (
           <div className="absolute top-4 left-4 z-20 pointer-events-none max-w-[calc(100vw-2rem)]">
             <ClusterExpansionCard
+              key={expandedCluster.id}
               cluster={expandedCluster}
               selectedMemoryId={selectedMemory?.id ?? null}
               onSelectMemory={(m) => {
@@ -651,7 +656,7 @@ export function MapView() {
                   mapRef.current.panTo([m.coordinates.lat, m.coordinates.lng])
                 }
               }}
-              onOpenLightbox={(m) => handleOpenLightbox(m)}
+              onOpenLightbox={(m) => handleOpenLightbox(m, expandedCluster.items)}
               onZoomIn={() => handleZoomCluster(expandedCluster)}
               onClose={() => setExpandedCluster(null)}
             />
@@ -736,7 +741,7 @@ export function MapView() {
         <MediaLightbox
           memory={activeLightboxMemory}
           currentIndex={activeLightboxIndex!}
-          totalCount={filteredMemories.length}
+          totalCount={currentLightboxItems.length}
           onClose={handleCloseLightbox}
           onPrev={handlePrevLightbox}
           onNext={handleNextLightbox}

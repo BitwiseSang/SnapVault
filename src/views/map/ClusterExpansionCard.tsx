@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Maximize2, X, Image as ImageIcon, Video as VideoIcon, ZoomIn } from 'lucide-react'
 import { GeoCluster, GeoMemoryEvent, formatCoordinates } from '../../utils/geo'
 import { useMediaUrl } from '../../db/mediaUrl'
@@ -38,13 +39,13 @@ function ClusterItemThumbnail({
   return (
     <div
       onClick={onClick}
-      className={`group relative rounded-xl overflow-hidden border-2 transition-all cursor-pointer bg-surface-raised flex flex-col ${
+      className={`group relative rounded-xl overflow-hidden border-2 transition-all cursor-pointer bg-surface-raised flex flex-col shrink-0 ${
         isSelected
           ? 'border-accent shadow-md ring-2 ring-accent/30 scale-[1.02]'
           : 'border-border/60 hover:border-text-secondary/60 opacity-90 hover:opacity-100'
       }`}
     >
-      <div className="relative aspect-4/3 w-full bg-black flex items-center justify-center overflow-hidden">
+      <div className="relative aspect-[4/3] w-full min-h-[84px] bg-black flex items-center justify-center overflow-hidden">
         {url ? (
           <>
             {isVideo ? (
@@ -122,8 +123,12 @@ export function ClusterExpansionCard({
   onZoomIn,
   onClose,
 }: ClusterExpansionCardProps) {
+  const [visibleLimit, setVisibleLimit] = useState(30)
   const selectedMemory =
     cluster.items.find((m) => m.id === selectedMemoryId) ?? cluster.items[0] ?? null
+
+  const visibleItems = cluster.items.slice(0, visibleLimit)
+  const hasMore = visibleLimit < cluster.items.length
 
   return (
     <div
@@ -132,7 +137,7 @@ export function ClusterExpansionCard({
       className="w-80 sm:w-96 bg-surface/95 border border-border/80 rounded-2xl shadow-2xl overflow-hidden flex flex-col pointer-events-auto backdrop-blur-md animate-in fade-in slide-in-from-top-2 duration-200 max-h-[calc(100vh-8rem)]"
     >
       {/* Header bar */}
-      <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-border bg-surface-raised/50">
+      <div className="flex items-center justify-between px-3.5 py-2.5 border-b border-border bg-surface-raised/50 shrink-0">
         <div className="flex flex-col min-w-0">
           <div className="flex items-center gap-1.5 text-xs font-bold text-text-primary">
             <span className="w-2 h-2 rounded-full bg-accent inline-block"></span>
@@ -162,8 +167,8 @@ export function ClusterExpansionCard({
       </div>
 
       {/* Scrollable grid of memories */}
-      <div className="p-3 overflow-y-auto max-h-72 grid grid-cols-2 sm:grid-cols-3 gap-2">
-        {cluster.items.map((m) => (
+      <div className="p-3 overflow-y-auto min-h-0 max-h-72 sm:max-h-84 grid grid-cols-2 sm:grid-cols-3 gap-2">
+        {visibleItems.map((m) => (
           <ClusterItemThumbnail
             key={m.id}
             memory={m}
@@ -172,21 +177,29 @@ export function ClusterExpansionCard({
             onOpenLightbox={() => onOpenLightbox(m)}
           />
         ))}
+
+        {hasMore && (
+          <div className="col-span-full py-1.5 text-center">
+            <button
+              onClick={() => setVisibleLimit((prev) => prev + 30)}
+              className="w-full py-1.5 px-3 rounded-xl bg-surface-raised hover:bg-surface border border-border text-text-primary text-xs font-semibold transition cursor-pointer"
+            >
+              Load more ({cluster.items.length - visibleLimit} remaining)
+            </button>
+          </div>
+        )}
       </div>
 
-      {/* Footer bar with direct lightbox action */}
+      {/* Footer bar with direct lightbox action for the cluster */}
       {selectedMemory && (
-        <div className="p-2.5 border-t border-border bg-surface flex items-center justify-between gap-2">
+        <div className="p-2.5 border-t border-border bg-surface flex items-center justify-between gap-2 shrink-0">
           <div className="flex flex-col min-w-0">
-            <span className="text-[11px] font-medium text-text-primary truncate">
-              {selectedMemory.mediaKind === 'Video' ? 'Video Memory' : 'Photo Memory'}
+            <span className="text-[11px] font-semibold text-text-primary truncate">
+              {selectedMemory.mediaKind === 'Video' ? 'Selected Video' : 'Selected Photo'}
             </span>
             <span className="text-[10px] text-text-secondary truncate">
-              {new Date(selectedMemory.timestamp).toLocaleDateString([], {
-                month: 'short',
-                day: 'numeric',
-                year: 'numeric',
-              })}
+              {cluster.items.length} {cluster.items.length === 1 ? 'memory' : 'memories'} in this
+              cluster
             </span>
           </div>
 
