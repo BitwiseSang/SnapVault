@@ -1,10 +1,25 @@
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
-import { Search, X, ArrowDownAZ, Clock, Layers, Users } from 'lucide-react'
+import {
+  Search,
+  X,
+  ArrowDownAZ,
+  ArrowUpZA,
+  ArrowDownWideNarrow,
+  ArrowUpNarrowWide,
+  Clock,
+  Layers,
+  Users,
+  MessageSquare,
+  Camera,
+  Sparkles,
+  Bookmark,
+  ChevronDown,
+  Check,
+} from 'lucide-react'
 import { ContactSummary } from '../../db/db'
 import { Avatar } from '../../components/Avatar'
 import { Badge } from '../../components/Badge'
-import { IconButton } from '../../components/IconButton'
 
 interface ContactListProps {
   contacts: ContactSummary[]
@@ -13,7 +28,172 @@ interface ContactListProps {
   totalEventsCount: number
 }
 
-type SortOrder = 'recent' | 'alphabetical'
+export type ContactSortField = 'recent' | 'name' | 'total' | 'texts' | 'media' | 'snaps' | 'saved'
+
+export type SortDirection = 'asc' | 'desc'
+
+export interface SortOptionConfig {
+  id: ContactSortField
+  label: string
+  shortLabel: string
+  description: string
+  defaultDirection: SortDirection
+  icon: typeof Clock
+}
+
+export const SORT_OPTIONS: SortOptionConfig[] = [
+  {
+    id: 'recent',
+    label: 'Recent Activity',
+    shortLabel: 'Recent',
+    description: 'Order by latest message',
+    defaultDirection: 'desc',
+    icon: Clock,
+  },
+  {
+    id: 'name',
+    label: 'Contact Name',
+    shortLabel: 'Name',
+    description: 'Alphabetical order by name',
+    defaultDirection: 'asc',
+    icon: ArrowDownAZ,
+  },
+  {
+    id: 'total',
+    label: 'Total Activity',
+    shortLabel: 'Total',
+    description: 'Total combined messages & snaps',
+    defaultDirection: 'desc',
+    icon: Layers,
+  },
+  {
+    id: 'texts',
+    label: 'Text Messages',
+    shortLabel: 'Texts',
+    description: 'Total text messages count',
+    defaultDirection: 'desc',
+    icon: MessageSquare,
+  },
+  {
+    id: 'media',
+    label: 'Media Attachments',
+    shortLabel: 'Media',
+    description: 'Photos & videos sent in chat',
+    defaultDirection: 'desc',
+    icon: Camera,
+  },
+  {
+    id: 'snaps',
+    label: 'Snaps Exchanged',
+    shortLabel: 'Snaps',
+    description: 'Direct photo & video snaps',
+    defaultDirection: 'desc',
+    icon: Sparkles,
+  },
+  {
+    id: 'saved',
+    label: 'Saved in Chat',
+    shortLabel: 'Saved',
+    description: 'Messages and media bookmarked in chat',
+    defaultDirection: 'desc',
+    icon: Bookmark,
+  },
+]
+
+export function getDirectionLabel(field: ContactSortField, dir: SortDirection): string {
+  if (field === 'name') {
+    return dir === 'asc' ? 'A → Z' : 'Z → A'
+  }
+  if (field === 'recent') {
+    return dir === 'desc' ? 'Newest first' : 'Oldest first'
+  }
+  return dir === 'desc' ? 'Most first' : 'Fewest first'
+}
+
+export function compareContacts(
+  a: ContactSummary,
+  b: ContactSummary,
+  field: ContactSortField,
+  direction: SortDirection,
+): number {
+  let diff = 0
+
+  switch (field) {
+    case 'recent':
+      diff = a.lastActivity.localeCompare(b.lastActivity)
+      break
+    case 'name':
+      diff = a.displayName.localeCompare(b.displayName, undefined, { sensitivity: 'base' })
+      break
+    case 'total':
+      diff = a.totalMessages + a.totalSnaps - (b.totalMessages + b.totalSnaps)
+      break
+    case 'texts':
+      diff = (a.totalTexts ?? 0) - (b.totalTexts ?? 0)
+      break
+    case 'media':
+      diff = (a.totalMedia ?? 0) - (b.totalMedia ?? 0)
+      break
+    case 'snaps':
+      diff = (a.totalSnaps ?? 0) - (b.totalSnaps ?? 0)
+      break
+    case 'saved':
+      diff = (a.totalSaved ?? 0) - (b.totalSaved ?? 0)
+      break
+  }
+
+  // If ascending: a - b (or a.localeCompare(b)). If descending: invert.
+  const primary = direction === 'asc' ? diff : -diff
+  if (primary !== 0) return primary
+
+  // Deterministic tie-breaker 1: most recent activity first
+  const tieActivity = b.lastActivity.localeCompare(a.lastActivity)
+  if (tieActivity !== 0) return tieActivity
+
+  // Deterministic tie-breaker 2: alphabetical display name
+  return a.displayName.localeCompare(b.displayName)
+}
+
+function renderContactBadge(item: ContactSummary, field: ContactSortField) {
+  switch (field) {
+    case 'texts':
+      return (
+        <span className="px-1.5 py-0.5 rounded bg-accent/15 text-accent font-semibold">
+          {(item.totalTexts ?? 0).toLocaleString()} texts
+        </span>
+      )
+    case 'media':
+      return (
+        <span className="px-1.5 py-0.5 rounded bg-accent/15 text-accent font-semibold">
+          {(item.totalMedia ?? 0).toLocaleString()} media
+        </span>
+      )
+    case 'snaps':
+      return (
+        <span className="px-1.5 py-0.5 rounded bg-accent/15 text-accent font-semibold">
+          {(item.totalSnaps ?? 0).toLocaleString()} snaps
+        </span>
+      )
+    case 'saved':
+      return (
+        <span className="px-1.5 py-0.5 rounded bg-accent/15 text-accent font-semibold">
+          {(item.totalSaved ?? 0).toLocaleString()} saved
+        </span>
+      )
+    case 'total':
+      return (
+        <span className="px-1.5 py-0.5 rounded bg-accent/15 text-accent font-semibold">
+          {(item.totalMessages + item.totalSnaps).toLocaleString()} total
+        </span>
+      )
+    default:
+      return (
+        <span className="opacity-80 font-mono">
+          {(item.totalMessages + item.totalSnaps).toLocaleString()}
+        </span>
+      )
+  }
+}
 
 export function ContactList({
   contacts,
@@ -22,8 +202,53 @@ export function ContactList({
   totalEventsCount,
 }: ContactListProps) {
   const [filterQuery, setFilterQuery] = useState('')
-  const [sortOrder, setSortOrder] = useState<SortOrder>('recent')
+  const [sortField, setSortField] = useState<ContactSortField>('recent')
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc')
+  const [isMenuOpen, setIsMenuOpen] = useState(false)
+
   const parentRef = useRef<HTMLDivElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
+  const buttonRef = useRef<HTMLButtonElement>(null)
+
+  // Close menu on click outside
+  useEffect(() => {
+    if (!isMenuOpen) return
+
+    function handleClickOutside(e: MouseEvent) {
+      if (
+        menuRef.current &&
+        !menuRef.current.contains(e.target as Node) &&
+        buttonRef.current &&
+        !buttonRef.current.contains(e.target as Node)
+      ) {
+        setIsMenuOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+    }
+  }, [isMenuOpen])
+
+  const activeSortOption = useMemo(() => {
+    return SORT_OPTIONS.find((o) => o.id === sortField) ?? SORT_OPTIONS[0]!
+  }, [sortField])
+
+  const handleSelectField = (field: ContactSortField) => {
+    if (field === sortField) {
+      setSortDirection((prev) => (prev === 'desc' ? 'asc' : 'desc'))
+    } else {
+      const opt = SORT_OPTIONS.find((o) => o.id === field)
+      setSortField(field)
+      setSortDirection(opt?.defaultDirection ?? 'desc')
+    }
+    setIsMenuOpen(false)
+  }
+
+  const toggleDirection = () => {
+    setSortDirection((prev) => (prev === 'desc' ? 'asc' : 'desc'))
+  }
 
   const filteredContacts = useMemo(() => {
     let list = contacts
@@ -35,12 +260,8 @@ export function ContactList({
       )
     }
 
-    if (sortOrder === 'alphabetical') {
-      return [...list].sort((a, b) => a.displayName.localeCompare(b.displayName))
-    }
-
-    return [...list].sort((a, b) => b.lastActivity.localeCompare(a.lastActivity))
-  }, [contacts, filterQuery, sortOrder])
+    return [...list].sort((a, b) => compareContacts(a, b, sortField, sortDirection))
+  }, [contacts, filterQuery, sortField, sortDirection])
 
   // Include "__all__" unified stream as item 0 when not filtering, or if it matches
   const showAllItem = !filterQuery.trim() || 'all conversations'.includes(filterQuery.toLowerCase())
@@ -77,6 +298,8 @@ export function ContactList({
     }
   }
 
+  const ActiveIcon = activeSortOption.icon
+
   return (
     <div className="flex flex-col h-full w-full bg-surface shrink-0">
       {/* List Header */}
@@ -89,24 +312,92 @@ export function ContactList({
             </Badge>
           </div>
 
-          <div className="flex items-center gap-1">
-            <IconButton
-              label={
-                sortOrder === 'recent'
-                  ? 'Sorted by recent activity (click for A-Z)'
-                  : 'Sorted alphabetically (click for recent)'
-              }
-              size="sm"
-              onClick={() =>
-                setSortOrder((prev) => (prev === 'recent' ? 'alphabetical' : 'recent'))
-              }
+          <div className="flex items-center gap-1.5 relative">
+            {/* Sort Menu Button */}
+            <button
+              ref={buttonRef}
+              onClick={() => setIsMenuOpen((prev) => !prev)}
+              aria-expanded={isMenuOpen}
+              aria-haspopup="true"
+              aria-label={`Sort conversations, currently by ${activeSortOption.label}`}
+              title={`Sort by: ${activeSortOption.label} (${getDirectionLabel(sortField, sortDirection)})`}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-surface-raised hover:bg-surface-raised/80 border border-border text-text-primary transition cursor-pointer shadow-2xs"
             >
-              {sortOrder === 'recent' ? (
-                <Clock className="w-3.5 h-3.5 text-accent" />
+              <ActiveIcon className="w-3.5 h-3.5 text-accent shrink-0" />
+              <span className="font-semibold">{activeSortOption.shortLabel}</span>
+              <ChevronDown
+                className={`w-3 h-3 text-text-secondary transition-transform duration-150 ${
+                  isMenuOpen ? 'rotate-180' : ''
+                }`}
+              />
+            </button>
+
+            {/* Direction Toggle Button */}
+            <button
+              onClick={toggleDirection}
+              title={`Currently: ${getDirectionLabel(sortField, sortDirection)}. Click to invert.`}
+              aria-label={`Invert sort direction, currently ${getDirectionLabel(sortField, sortDirection)}`}
+              className="flex items-center justify-center w-7 h-7 rounded-lg bg-surface-raised hover:bg-surface-raised/80 border border-border text-accent transition cursor-pointer shadow-2xs"
+            >
+              {sortField === 'name' ? (
+                sortDirection === 'asc' ? (
+                  <ArrowDownAZ className="w-3.5 h-3.5" />
+                ) : (
+                  <ArrowUpZA className="w-3.5 h-3.5" />
+                )
+              ) : sortDirection === 'desc' ? (
+                <ArrowDownWideNarrow className="w-3.5 h-3.5" />
               ) : (
-                <ArrowDownAZ className="w-3.5 h-3.5 text-text-secondary" />
+                <ArrowUpNarrowWide className="w-3.5 h-3.5" />
               )}
-            </IconButton>
+            </button>
+
+            {/* Sort Dropdown Menu */}
+            {isMenuOpen && (
+              <div
+                ref={menuRef}
+                className="absolute right-0 top-full mt-1.5 w-60 bg-surface border border-border rounded-xl shadow-xl z-50 p-1.5 space-y-0.5"
+              >
+                <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-text-secondary border-b border-border/40 mb-1 flex items-center justify-between">
+                  <span>Sort conversations by</span>
+                  <span className="text-accent font-mono text-[9px] font-normal lowercase">
+                    {getDirectionLabel(sortField, sortDirection)}
+                  </span>
+                </div>
+
+                {SORT_OPTIONS.map((opt) => {
+                  const Icon = opt.icon
+                  const isSelected = sortField === opt.id
+                  return (
+                    <button
+                      key={opt.id}
+                      onClick={() => handleSelectField(opt.id)}
+                      className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition cursor-pointer text-left ${
+                        isSelected
+                          ? 'bg-accent/10 text-accent font-semibold'
+                          : 'text-text-primary hover:bg-surface-raised'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <Icon
+                          className={`w-3.5 h-3.5 shrink-0 ${
+                            isSelected ? 'text-accent' : 'text-text-secondary'
+                          }`}
+                        />
+                        <span className="truncate">{opt.label}</span>
+                      </div>
+
+                      {isSelected && (
+                        <div className="flex items-center gap-1.5 text-[10px] font-mono text-accent shrink-0 ml-2">
+                          <span>{getDirectionLabel(opt.id, sortDirection)}</span>
+                          <Check className="w-3.5 h-3.5 text-accent shrink-0" />
+                        </div>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
           </div>
         </div>
 
@@ -213,8 +504,8 @@ export function ContactList({
                       </span>
 
                       {!isAll && (
-                        <span className="text-[10px] font-mono opacity-80 shrink-0 ml-1">
-                          {item.totalMessages + item.totalSnaps}
+                        <span className="text-[10px] shrink-0 ml-1">
+                          {renderContactBadge(item, sortField)}
                         </span>
                       )}
                     </div>

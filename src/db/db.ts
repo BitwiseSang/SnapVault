@@ -65,7 +65,10 @@ export interface ContactSummary {
   contact: string
   displayName: string
   totalMessages: number
+  totalTexts: number
+  totalMedia: number
   totalSnaps: number
+  totalSaved: number
   lastActivity: string
   isGroup: boolean
 }
@@ -82,7 +85,10 @@ export async function getAllContactSummaries(): Promise<ContactSummary[]> {
       contact,
       displayName: contact,
       totalMessages: 0,
+      totalTexts: 0,
+      totalMedia: 0,
       totalSnaps: 0,
+      totalSaved: 0,
       lastActivity: ev.timestamp,
       isGroup: false,
     }
@@ -90,6 +96,15 @@ export async function getAllContactSummaries(): Promise<ContactSummary[]> {
     if (ev.type === 'message') {
       existing.totalMessages++
       const msg = ev as MessageEvent
+      const mt = (msg.mediaType || 'TEXT').toUpperCase()
+      if (mt === 'TEXT') {
+        existing.totalTexts++
+      } else if (mt === 'MEDIA') {
+        existing.totalMedia++
+      }
+      if (msg.isSaved) {
+        existing.totalSaved++
+      }
       if (msg.conversationTitle) {
         existing.displayName = msg.conversationTitle
         existing.isGroup = true
