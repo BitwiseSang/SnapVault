@@ -17,6 +17,17 @@ describe('BarChart', () => {
     expect(screen.getByText('Sent')).toBeDefined()
     expect(screen.getByText('Received')).toBeDefined()
   })
+
+  it('uses var(--color-sent) and var(--color-received) as the default colors', () => {
+    const data = [{ label: 'Jan', value: 100, subValue: 50 }]
+    const { container } = render(<BarChart data={data} />)
+
+    const subRect = container.querySelector('rect[fill="var(--color-received)"]')
+    expect(subRect).not.toBeNull()
+
+    const primaryRect = container.querySelector('rect[fill="var(--color-sent)"]')
+    expect(primaryRect).not.toBeNull()
+  })
 })
 
 describe('DonutChart', () => {

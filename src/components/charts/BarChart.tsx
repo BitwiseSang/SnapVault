@@ -19,8 +19,8 @@ interface BarChartProps {
 export function BarChart({
   data,
   height = 240,
-  primaryColor = 'var(--color-accent)',
-  subColor = 'var(--color-surface-raised)',
+  primaryColor = 'var(--color-sent)',
+  subColor = 'var(--color-received)',
   primaryLabel = 'Sent',
   subLabel = 'Received',
   className = '',
@@ -120,6 +120,8 @@ export function BarChart({
                   width={barWidth}
                   height={subH}
                   fill={subColor}
+                  stroke="var(--color-border)"
+                  strokeWidth={1}
                   rx={2}
                   className="transition-all duration-300"
                 />
@@ -163,7 +165,10 @@ export function BarChart({
           </div>
           {data.some((d) => (d.subValue ?? 0) > 0) && (
             <div className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-xs" style={{ backgroundColor: subColor }} />
+              <span
+                className="w-2.5 h-2.5 rounded-xs border border-border"
+                style={{ backgroundColor: subColor }}
+              />
               <span>{subLabel}</span>
             </div>
           )}

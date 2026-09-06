@@ -251,12 +251,22 @@ export function StatsView() {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Most Contacted Friends */}
         <div className="p-6 rounded-2xl bg-surface border border-border shadow-xs space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
               <h2 className="text-base font-bold text-text-primary">Top 10 Most Contacted</h2>
               <p className="text-xs text-text-secondary">
                 Ranked by combined message & snap interactions.
               </p>
+            </div>
+            <div className="flex items-center gap-3 text-xs text-text-secondary select-none shrink-0">
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-xs bg-sent" />
+                <span>Sent</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-xs bg-received border border-border" />
+                <span>Received</span>
+              </div>
             </div>
           </div>
 
@@ -289,16 +299,16 @@ export function StatsView() {
                     </div>
 
                     {/* Progress bar split: sent vs received */}
-                    <div className="w-full bg-surface-raised h-1.5 rounded-full overflow-hidden mt-1.5 flex">
+                    <div className="w-full bg-surface-raised h-1.5 rounded-full overflow-hidden mt-1.5 flex border border-border/30">
                       <div
-                        className="bg-accent h-full transition-all duration-300"
+                        className="bg-sent h-full transition-all duration-300"
                         style={{ width: `${(percentage * sentRatio) / 100}%` }}
-                        title={`${c.sentCount} sent`}
+                        title={`${c.sentCount.toLocaleString()} sent`}
                       />
                       <div
-                        className="bg-border h-full transition-all duration-300"
+                        className="bg-received h-full transition-all duration-300 border-l border-border/60"
                         style={{ width: `${(percentage * (100 - sentRatio)) / 100}%` }}
-                        title={`${c.receivedCount} received`}
+                        title={`${c.receivedCount.toLocaleString()} received`}
                       />
                     </div>
                   </div>
@@ -326,6 +336,15 @@ export function StatsView() {
               ]}
               centerLabel="Snaps"
             />
+
+            <div className="flex items-start gap-2 p-3 bg-surface-raised/60 rounded-xl text-[11px] text-text-secondary">
+              <Info className="w-4 h-4 text-accent shrink-0 mt-0.5" />
+              <span>
+                Snapchat deletes old snaps from its servers, so only your recent snaps appear here.
+                Any photos and videos you sent directly in chat never expire and are counted under
+                Messages.
+              </span>
+            </div>
           </div>
 
           {/* Call History Breakdown */}
