@@ -158,12 +158,12 @@ function ChatMediaTile({
   const { url, isLoading } = useMediaUrl(filePath)
   const isVideo = filePath.endsWith('.mp4') || filePath.endsWith('.mov')
 
+  const containerClasses = isSingle ? 'w-full h-[280px] sm:h-[320px]' : 'w-full aspect-square'
+
   if (isLoading) {
     return (
       <div
-        className={`${
-          isSingle ? 'h-48 w-full' : 'aspect-square'
-        } rounded-xl bg-surface-raised border border-border flex items-center justify-center`}
+        className={`${containerClasses} rounded-xl bg-surface-raised border border-border flex items-center justify-center`}
       >
         <Spinner size="sm" />
       </div>
@@ -173,9 +173,7 @@ function ChatMediaTile({
   if (!url) {
     return (
       <div
-        className={`${
-          isSingle ? 'p-3' : 'aspect-square p-1'
-        } rounded-xl bg-surface border border-border text-xs text-text-secondary flex items-center justify-center gap-1.5`}
+        className={`${containerClasses} p-3 rounded-xl bg-surface border border-border text-xs text-text-secondary flex items-center justify-center gap-1.5`}
       >
         <Camera className="w-4 h-4 opacity-50" />
         {isSingle && <span>Media unavailable</span>}
@@ -185,13 +183,15 @@ function ChatMediaTile({
 
   if (isVideo && isSingle) {
     return (
-      <div className="rounded-xl overflow-hidden bg-black max-w-full">
+      <div
+        className={`${containerClasses} rounded-xl overflow-hidden bg-black flex items-center justify-center`}
+      >
         <video
           src={url}
           controls
           preload="metadata"
           playsInline
-          className="max-h-[320px] w-full object-contain rounded-xl"
+          className="w-full h-full object-contain rounded-xl"
         />
       </div>
     )
@@ -200,9 +200,7 @@ function ChatMediaTile({
   return (
     <div
       onClick={onClick}
-      className={`relative rounded-xl overflow-hidden bg-surface-raised border border-border/40 cursor-pointer group/tile ${
-        isSingle ? 'max-h-[320px] w-full flex justify-center' : 'aspect-square'
-      }`}
+      className={`relative ${containerClasses} rounded-xl overflow-hidden bg-surface-raised border border-border/40 cursor-pointer group/tile flex items-center justify-center`}
     >
       {isVideo ? (
         <>
@@ -222,10 +220,7 @@ function ChatMediaTile({
           <img
             src={url}
             alt="Chat attachment"
-            loading="lazy"
-            className={`w-full ${
-              isSingle ? 'max-h-[320px] object-cover' : 'h-full object-cover'
-            } group-hover/tile:scale-102 transition duration-150`}
+            className="w-full h-full object-cover group-hover/tile:scale-102 transition duration-150"
           />
           <div className="absolute inset-0 bg-black/0 group-hover/tile:bg-black/15 transition flex items-end justify-end p-1.5 opacity-0 group-hover/tile:opacity-100">
             <div className="bg-black/60 text-white rounded-md p-1 shadow-sm">

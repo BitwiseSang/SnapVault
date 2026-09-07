@@ -146,9 +146,21 @@ export function ConversationPane({
         size += 52
       }
       if (ev.type === 'message' && ev.chatMediaFiles && ev.chatMediaFiles.length > 0) {
-        size += 220
+        if (ev.mediaType === 'NOTE') {
+          // Audio note player pill: p-2.5 + 36px play button + time row
+          size += 40
+        } else if (ev.chatMediaFiles.length === 1) {
+          // Single photo/video: fixed container 320px + bubble padding + footer
+          size += 310
+        } else if (ev.chatMediaFiles.length === 2) {
+          // 2 items side-by-side: 1 square row (~150px-180px)
+          size += 180
+        } else {
+          // 3+ items: 2 or more square grid rows (~300px-380px)
+          size += 330
+        }
       } else if (ev.type === 'snap' || (ev.type === 'message' && ev.mediaType !== 'TEXT')) {
-        // 56 px (vs 48): card frame p-2.5 + icon row + two text rows.
+        // Fallback cards (ephemeral snap or unexported media attachment card)
         size += 56
       } else if (ev.type === 'message' && ev.content && ev.content.length > 50) {
         // 22 px/line (vs 18), threshold 50 chars (vs 70), cap 120 px (vs 100).
