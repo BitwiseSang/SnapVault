@@ -57,4 +57,21 @@ describe('FolderIngestSource', () => {
     const files = await source.listFiles()
     expect(files[0]?.path).toBe('json/snap_history.json')
   })
+
+  it('preserves lastModified timestamp from File or IngestedFile', async () => {
+    const file = new File(['test'], 'memory.jpg', { lastModified: 1700000000000 })
+    const source = createIngestFromFiles([file])
+    const files = await source.listFiles()
+    expect(files[0]?.lastModified).toBe(1700000000000)
+
+    const manualSource = new FolderIngestSource([
+      {
+        path: 'memories/test.jpg',
+        file: new Blob(['']),
+        lastModified: 1750000000000,
+      },
+    ])
+    const manualFiles = await manualSource.listFiles()
+    expect(manualFiles[0]?.lastModified).toBe(1750000000000)
+  })
 })

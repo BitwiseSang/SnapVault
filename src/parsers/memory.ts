@@ -20,7 +20,7 @@ export interface ParseMemoryResult {
  * Enumerate files in `memories/`:
  * - Identify main media files ending in `-main.(jpg|mp4|...)`
  * - Match optional sibling overlay file ending in `-overlay.png`
- * - Match metadata from memories_history.json by date (YYYY-MM-DD) + media type
+ * - Match metadata from memories_history.json by date (YYYY-MM-DD) + chronological order (lastModified) + media type
  */
 export function parseMemories(rawJson: unknown, allFiles: IngestedFile[]): ParseMemoryResult {
   const events: MemoryEvent[] = []
@@ -48,9 +48,24 @@ export function parseMemories(rawJson: unknown, allFiles: IngestedFile[]): Parse
     }
   }
 
+  // Sort candidates chronologically ascending for each date
+  for (const list of jsonByDate.values()) {
+    list.sort((a, b) => {
+      const timeA = new Date(parseSnapchatDate(a.Date)).getTime()
+      const timeB = new Date(parseSnapchatDate(b.Date)).getTime()
+      return timeA - timeB
+    })
+  }
+
   // 2. Identify all files in memories/
   const overlayMap = new Map<string, string>() // basePrefix -> overlay path
-  const mainFiles: { path: string; basePrefix: string; ext: string; datePrefix: string }[] = []
+  const mainFiles: {
+    path: string
+    basePrefix: string
+    ext: string
+    datePrefix: string
+    lastModified?: number
+  }[] = []
 
   for (const f of allFiles) {
     const path = f.path
@@ -69,6 +84,12 @@ export function parseMemories(rawJson: unknown, allFiles: IngestedFile[]): Parse
     const ext = match[4]!.toLowerCase()
     const basePrefix = `${datePrefix}_${uuid}`
 
+    const lastModified =
+      f.lastModified ??
+      ('lastModified' in f.file && typeof f.file.lastModified === 'number'
+        ? f.file.lastModified
+        : undefined)
+
     if (kind === 'overlay') {
       overlayMap.set(basePrefix, path)
     } else if (kind === 'main') {
@@ -77,12 +98,23 @@ export function parseMemories(rawJson: unknown, allFiles: IngestedFile[]): Parse
         basePrefix,
         ext,
         datePrefix,
+        lastModified,
       })
     }
   }
 
-  // Sort main files for deterministic ordering
-  mainFiles.sort((a, b) => a.path.localeCompare(b.path))
+  // Sort main files: by datePrefix, then chronologically by lastModified (if available), then by path
+  mainFiles.sort((a, b) => {
+    if (a.datePrefix !== b.datePrefix) {
+      return a.datePrefix.localeCompare(b.datePrefix)
+    }
+    const timeA = a.lastModified ?? 0
+    const timeB = b.lastModified ?? 0
+    if (timeA !== timeB) {
+      return timeA - timeB
+    }
+    return a.path.localeCompare(b.path)
+  })
 
   // Keep track of used JSON entries per date to prevent duplicate assignment
   const usedJsonIndices = new Map<string, Set<number>>()

@@ -1,6 +1,7 @@
 export interface IngestedFile {
   path: string // Normalized relative path, e.g. "json/chat_history.json"
   file: File | Blob
+  lastModified?: number // Timestamp in milliseconds from File.lastModified if available
 }
 
 export interface IngestSource {

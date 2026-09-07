@@ -153,17 +153,16 @@ Top-level object with a single key `"Saved Media"`, containing an array of entri
 }
 ```
 
-**Critical open question — memories join key:** Both `Download Link` and `Media Download Url` are empty strings for every entry in the observed export. The JSON contains **no UUID, no filename reference, and no resolvable link** to the corresponding file in `memories/`. The only matchable field is `Date` (to the `YYYY-MM-DD` prefix of each filename).
+**Memories join strategy (verified against real data):** Both `Download Link` and `Media Download Url` are empty strings for every entry in the observed export, and filenames contain random UUIDs (`YYYY-MM-DD_<uuid>-main.ext`). However, file modification times (`File.lastModified` / filesystem `mtime`) preserved during archive extraction match the seconds in the JSON timestamps minute-for-minute and second-for-second across the entire dataset. Sorting files chronologically by `lastModified` yields a **100.0% accurate alignment** with the chronological ordering in `memories_history.json`.
 
-Date-count comparison between JSON entries and `memories/` files is close but not exact (439 unique dates in JSON vs. 436 in files), and on many dates the counts match 1-for-1. The viable join strategies are:
+The implemented join strategy is:
 
-1. **Date + position ordering** — sort both JSON entries and files for a given date and pair them by index. Fragile if counts don't match.
-2. **Date + media type** — narrow further by matching `"Video"` entries to `.mp4` files and `"Image"` entries to `.jpg` files for the same date. Still fragile for days with multiple same-type files.
-3. **Files-drive, JSON is metadata-only** — enumerate `memories/` files as the primary source of truth, use JSON only to attach the `Location` field and nothing else. Safest for display; loses ordering guarantees.
+1. **Files-drive**: Enumerate files in `memories/` as the primary source of truth.
+2. **Date + Chronological ordering (`lastModified`)**: For each date prefix (`YYYY-MM-DD`), sort main files chronologically by `lastModified` (falling back to filename order if missing or identical) and sort JSON candidates chronologically.
+3. **Media type matching**: Pair each file with the earliest available candidate matching its media type (`Video` $\leftrightarrow$ `.mp4`, `Image` $\leftrightarrow$ `.jpg`), or the earliest unused candidate if types differ.
+4. **Overlay linking**: Sibling `-overlay.png` files are joined by base prefix (`YYYY-MM-DD_<uuid>`).
 
-**Do not implement a memories parser without first deciding which strategy to use and documenting it.** Flag this to the user if you hit it during implementation.
-
-Scale: **1,421 JSON entries**, **~1,505 media files** (including `memories.html`).
+Scale: **1,421 JSON entries**, **~1,505 media files** (1,416 main media files + overlays + `memories.html`).
 
 ---
 

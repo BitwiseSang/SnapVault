@@ -2,31 +2,36 @@ import { IngestedFile, IngestSource } from '../models/ingest'
 import { normalizeExportPath } from './normalize'
 
 export class FolderIngestSource implements IngestSource {
-  private fileMap: Map<string, File | Blob>
+  private fileMap: Map<string, IngestedFile>
 
   constructor(files: IngestedFile[]) {
     this.fileMap = new Map()
     for (const f of files) {
       const normalized = normalizeExportPath(f.path)
-      this.fileMap.set(normalized, f.file)
+      const lastModified =
+        f.lastModified ??
+        ('lastModified' in f.file && typeof f.file.lastModified === 'number'
+          ? f.file.lastModified
+          : undefined)
+      this.fileMap.set(normalized, {
+        path: normalized,
+        file: f.file,
+        lastModified,
+      })
     }
   }
 
   async listFiles(): Promise<IngestedFile[]> {
-    const list: IngestedFile[] = []
-    for (const [path, file] of this.fileMap.entries()) {
-      list.push({ path, file })
-    }
-    return list
+    return Array.from(this.fileMap.values())
   }
 
   async readFile(path: string): Promise<Blob> {
     const normalized = normalizeExportPath(path)
-    const file = this.fileMap.get(normalized)
-    if (!file) {
+    const entry = this.fileMap.get(normalized)
+    if (!entry) {
       throw new Error(`File not found in ingest source: ${path} (normalized: ${normalized})`)
     }
-    return file
+    return entry.file
   }
 
   async readJson<T = unknown>(path: string): Promise<T> {
@@ -43,6 +48,7 @@ export function createIngestFromFiles(files: File[]): IngestSource {
   const ingested: IngestedFile[] = files.map((file) => ({
     path: normalizeExportPath(file.webkitRelativePath || file.name),
     file,
+    lastModified: typeof file.lastModified === 'number' ? file.lastModified : undefined,
   }))
   return new FolderIngestSource(ingested)
 }
@@ -65,6 +71,7 @@ export async function createIngestFromDirectoryHandle(
         files.push({
           path: normalizeExportPath(entryPath),
           file,
+          lastModified: typeof file.lastModified === 'number' ? file.lastModified : undefined,
         })
       } else if (entry.kind === 'directory') {
         await walk(entry as FileSystemDirectoryHandle, entryPath)
@@ -111,6 +118,7 @@ export async function createIngestFromDataTransfer(
             files.push({
               path: normalizeExportPath(itemPath),
               file,
+              lastModified: typeof file.lastModified === 'number' ? file.lastModified : undefined,
             })
             resolve()
           },
@@ -170,6 +178,7 @@ export async function createIngestFromDataTransfer(
         files.push({
           path: normalizeExportPath(file.name),
           file,
+          lastModified: typeof file.lastModified === 'number' ? file.lastModified : undefined,
         })
       }
     }

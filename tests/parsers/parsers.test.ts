@@ -237,4 +237,58 @@ describe('parseMemories', () => {
     expect(events[0]?.timestamp).toBe('2025-01-01T00:00:00.000Z')
     expect(events[0]?.location).toBe('')
   })
+
+  it('correctly pairs same-day memories chronologically using lastModified instead of random UUIDs', () => {
+    const rawJson = {
+      'Saved Media': [
+        // JSON entries in reverse-chronological order like real Snapchat export
+        {
+          Date: '2025-01-13 14:00:00 UTC',
+          'Media Type': 'Image',
+          Location: 'Latitude, Longitude: -0.1676, 35.9662', // Nakuru
+          'Download Link': '',
+          'Media Download Url': '',
+        },
+        {
+          Date: '2025-01-13 08:00:00 UTC',
+          'Media Type': 'Image',
+          Location: 'Latitude, Longitude: 0.5195, 35.2750', // Eldoret
+          'Download Link': '',
+          'Media Download Url': '',
+        },
+      ],
+    }
+
+    const dummyBlob = new Blob([''], { type: 'image/jpeg' })
+    // Note: fff has an alphabetically later UUID than aaa, but earlier lastModified
+    const allFiles: IngestedFile[] = [
+      {
+        path: 'memories/2025-01-13_ffffffff-9999-9999-9999-999999999999-main.jpg',
+        file: dummyBlob,
+        lastModified: 1736755200000, // 08:00 UTC
+      },
+      {
+        path: 'memories/2025-01-13_aaaaaaaa-1111-1111-1111-111111111111-main.jpg',
+        file: dummyBlob,
+        lastModified: 1736776800000, // 14:00 UTC
+      },
+    ]
+
+    const { events } = parseMemories(rawJson, allFiles)
+    expect(events).toHaveLength(2)
+
+    // Earlier file (ffffffff) should receive earlier 08:00 UTC Eldoret location
+    const morningEvent = events.find(
+      (e) => e.mediaFile === 'memories/2025-01-13_ffffffff-9999-9999-9999-999999999999-main.jpg',
+    )
+    expect(morningEvent?.timestamp).toBe('2025-01-13T08:00:00.000Z')
+    expect(morningEvent?.location).toBe('Latitude, Longitude: 0.5195, 35.2750')
+
+    // Later file (aaaaaaaa) should receive later 14:00 UTC Nakuru location
+    const afternoonEvent = events.find(
+      (e) => e.mediaFile === 'memories/2025-01-13_aaaaaaaa-1111-1111-1111-111111111111-main.jpg',
+    )
+    expect(afternoonEvent?.timestamp).toBe('2025-01-13T14:00:00.000Z')
+    expect(afternoonEvent?.location).toBe('Latitude, Longitude: -0.1676, 35.9662')
+  })
 })
