@@ -113,38 +113,65 @@ export function ConversationPane({
     return [...list].sort((a, b) => a.timestamp.localeCompare(b.timestamp))
   }, [events, filter, sortOrder])
 
-  // Virtualizer for high-performance rendering of messages with dynamic measurement
+  // Virtualizer for high-performance rendering of messages with dynamic measurement.
+  //
+  // Tuning notes:
+  //   - estimateSize values are calibrated slightly above real rendered heights so that
+  //     resizeItem() sees delta ≤ 0 (item shrank or matched) rather than delta > 0 (item grew),
+  //     which eliminates the scrollAdjustment cascade that caused jitter on upward scroll.
+  //   - overscan is low (5) to minimise the burst of simultaneous ResizeObserver callbacks
+  //     that fired during fast upward scrolls with the previous overscan of 20.
+  //   - directDomUpdates writes translateY positions straight to the DOM, bypassing React
+  //     renders for position-only changes and keeping the reconciler out of the scroll path.
+  //   - useFlushSync:false prevents the virtualizer from calling flushSync() inside scroll
+  //     event handlers, which was blocking the main thread and amplifying jitter.
+  //   - useAnimationFrameWithResizeObserver batches measurement callbacks to one per frame,
+  //     converting measurement bursts (N items simultaneously entering viewport) into a
+  //     single correction per frame.
   const virtualizer = useVirtualizer({
     count: filteredEvents.length,
     getScrollElement: () => parentRef.current,
     estimateSize: (index) => {
       const ev = filteredEvents[index]
-      if (!ev) return 64
-      let size = 56
+      if (!ev) return 80
+      // Base: 72 px (vs 56 previously). Accounts for my-1 margins (16 px), py-2 bubble
+      // padding (16 px), one line of text (~20 px), and the footer time row (~16 px).
+      let size = 72
       const prevEv = index > 0 ? filteredEvents[index - 1] : undefined
       const isNewDate =
         index === 0 ||
         (prevEv !== undefined && ev.timestamp.slice(0, 10) !== prevEv.timestamp.slice(0, 10))
       if (isNewDate) {
-        size += 38
+        // 52 px (vs 38): my-3 margins (24 px) + text (~18 px) + border/gap (~10 px).
+        size += 52
       }
-      if (ev.type === 'snap' || ev.mediaType !== 'TEXT') {
-        size += 48
-      } else if (ev.content && ev.content.length > 70) {
-        size += Math.min(100, Math.floor(ev.content.length / 35) * 18)
+      if (ev.type === 'snap' || (ev.type === 'message' && ev.mediaType !== 'TEXT')) {
+        // 56 px (vs 48): card frame p-2.5 + icon row + two text rows.
+        size += 56
+      } else if (ev.type === 'message' && ev.content && ev.content.length > 50) {
+        // 22 px/line (vs 18), threshold 50 chars (vs 70), cap 120 px (vs 100).
+        size += Math.min(120, Math.floor(ev.content.length / 35) * 22)
       }
       if (
         (sortOrder === 'oldest_first' && index === 0) ||
         (sortOrder === 'newest_first' && index === filteredEvents.length - 1)
       ) {
-        size += 36
+        // 52 px (vs 36): my-4 margins (32 px) + badge text (~12 px) + letter-spacing.
+        size += 52
       }
       return size
     },
-    overscan: 20,
+    overscan: 5,
     paddingStart: 16,
     paddingEnd: 16,
     getItemKey: (index) => filteredEvents[index]?.id ?? index,
+    // Bypass React reconciler for position-only updates during scroll.
+    directDomUpdates: true,
+    // Defer re-renders to React scheduler; do not call flushSync() in scroll handlers.
+    useFlushSync: false,
+    // Batch ResizeObserver callbacks to one rAF tick, converting measurement bursts
+    // (N items simultaneously entering viewport) into a single correction per frame.
+    useAnimationFrameWithResizeObserver: true,
   })
 
   const lastScrolledKeyRef = useRef<string | null>(null)
@@ -337,7 +364,7 @@ export function ConversationPane({
       {/* Message Feed */}
       <div
         ref={parentRef}
-        style={{ overflowAnchor: 'none' }}
+        style={{ overflowAnchor: 'none', willChange: 'transform' }}
         className="flex-1 overflow-y-auto px-6 min-h-0"
       >
         {isLoading ? (
@@ -362,6 +389,7 @@ export function ConversationPane({
           </div>
         ) : (
           <div
+            ref={virtualizer.containerRef}
             style={{
               height: `${virtualizer.getTotalSize()}px`,
               width: '100%',
@@ -394,7 +422,10 @@ export function ConversationPane({
                     top: 0,
                     left: 0,
                     width: '100%',
-                    transform: `translateY(${virtualRow.start}px)`,
+                    // translate3d instead of translateY — triggers GPU compositing.
+                    // directDomUpdates will overwrite this on subsequent ticks; keeping
+                    // it here ensures a correct initial position before the first rAF.
+                    transform: `translate3d(0, ${virtualRow.start}px, 0)`,
                   }}
                 >
                   {isBeginningOfConversation && sortOrder === 'oldest_first' && (
