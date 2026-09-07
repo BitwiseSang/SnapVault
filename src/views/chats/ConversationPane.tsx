@@ -145,7 +145,9 @@ export function ConversationPane({
         // 52 px (vs 38): my-3 margins (24 px) + text (~18 px) + border/gap (~10 px).
         size += 52
       }
-      if (ev.type === 'snap' || (ev.type === 'message' && ev.mediaType !== 'TEXT')) {
+      if (ev.type === 'message' && ev.chatMediaFiles && ev.chatMediaFiles.length > 0) {
+        size += 220
+      } else if (ev.type === 'snap' || (ev.type === 'message' && ev.mediaType !== 'TEXT')) {
         // 56 px (vs 48): card frame p-2.5 + icon row + two text rows.
         size += 56
       } else if (ev.type === 'message' && ev.content && ev.content.length > 50) {

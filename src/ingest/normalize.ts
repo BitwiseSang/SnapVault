@@ -7,7 +7,7 @@ export function normalizeExportPath(rawPath: string): string {
   // Replace backslashes with forward slashes and trim leading slashes
   let path = rawPath.replace(/\\/g, '/').replace(/^\/+/, '')
 
-  const knownRoots = ['json/', 'memories/', 'html/', 'index.html']
+  const knownRoots = ['json/', 'memories/', 'chat_media/', 'html/', 'index.html']
   for (const root of knownRoots) {
     const idx = path.indexOf(root)
     if (idx !== -1) {

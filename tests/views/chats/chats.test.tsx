@@ -114,6 +114,45 @@ describe('MessageBubble', () => {
     const bubble = container.querySelector('.ring-accent')
     expect(bubble).not.toBeNull()
   })
+
+  it('renders chat media grid when chatMediaFiles are present', () => {
+    const msg: MessageEvent = {
+      id: 'msg_media_1',
+      type: 'message',
+      timestamp: '2026-09-05T12:00:00.000Z',
+      contact: 'sarah',
+      direction: 'received',
+      mediaType: 'MEDIA',
+      content: 'Look at this photo',
+      isSaved: false,
+      mediaIds: 'sample_id',
+      chatMediaFiles: ['chat_media/2026-09-05_sample.jpg'],
+      conversationTitle: null,
+    }
+
+    render(<MessageBubble event={msg} />)
+    expect(screen.getByText('Look at this photo')).toBeDefined()
+  })
+
+  it('renders audio note with play button when chatMediaFiles are present', () => {
+    const msg: MessageEvent = {
+      id: 'msg_note_1',
+      type: 'message',
+      timestamp: '2026-09-05T12:00:00.000Z',
+      contact: 'sarah',
+      direction: 'received',
+      mediaType: 'NOTE',
+      content: null,
+      isSaved: true,
+      mediaIds: 'audio_id',
+      chatMediaFiles: ['chat_media/2026-09-05_audio.mp4'],
+      conversationTitle: null,
+    }
+
+    render(<MessageBubble event={msg} />)
+    expect(screen.getByText('Audio Note')).toBeDefined()
+    expect(screen.getByTitle('Play voice note')).toBeDefined()
+  })
 })
 
 describe('compareContacts sorting logic', () => {

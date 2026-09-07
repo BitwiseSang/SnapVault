@@ -573,13 +573,13 @@ These files correspond to **group-chat Snaps** sent via the old "Snap Camera" in
 
 ### 9.1 — Model updates (`src/models/events.ts` + `src/models/ingest.ts`)
 
-- [ ] Add `chatMediaFiles?: string[]` to `MessageEvent` — an ordered list of `chat_media/<filename>` paths for the media files attached to this message (empty/absent for text-only messages).
-- [ ] Update `IngestSource.listFiles()` and all ingest paths to include `chat_media/` files (currently only `memories/` is enumerated).
+- [x] Add `chatMediaFiles?: string[]` to `MessageEvent` — an ordered list of `chat_media/<filename>` paths for the media files attached to this message (empty/absent for text-only messages).
+- [x] Update `IngestSource.listFiles()` and all ingest paths to include `chat_media/` files (currently only `memories/` is enumerated).
 
 ### 9.2 — Ingest update (`src/ingest/folder.ts`)
 
-- [ ] Extend `FolderIngestSource` to recursively enumerate `chat_media/` in addition to `memories/`.
-- [ ] No changes needed to the `IngestedFile` type — `path` and `file` are sufficient.
+- [x] Extend `FolderIngestSource` to recursively enumerate `chat_media/` in addition to `memories/`.
+- [x] No changes needed to the `IngestedFile` type — `path` and `file` are sufficient.
 
 ### 9.3 — Chat media parser (`src/parsers/chatMedia.ts`)
 
@@ -612,22 +612,22 @@ export function enrichMessagesWithChatMedia(
 
 ### 9.4 — DB / import wiring (`src/db/import.ts` + `src/db/schema.ts`)
 
-- [ ] After `parseChat` runs, call `enrichMessagesWithChatMedia(chatEvents, allFiles)` to attach `chatMediaFiles` before `bulkAdd`.
-- [ ] Add `chat_media/` files to the `mediaFiles` Dexie table (same as memories — store `path`, `blob`, `mimeType`).
-- [ ] `mimeType` mapping for chat media: `.jpg/.jpeg/.heif → image/jpeg`, `.png → image/png`, `.gif → image/gif`, `.webp → image/webp`, `.mp4/.mov → video/mp4` (treat `.mov` as `video/mp4` for playback compatibility).
+- [x] After `parseChat` runs, call `enrichMessagesWithChatMedia(chatEvents, allFiles)` to attach `chatMediaFiles` before `bulkAdd`.
+- [x] Add `chat_media/` files to the `mediaFiles` Dexie table (same as memories — store `path`, `blob`, `mimeType`).
+- [x] `mimeType` mapping for chat media: `.jpg/.jpeg/.heif → image/jpeg`, `.png → image/png`, `.gif → image/gif`, `.webp → image/webp`, `.mp4/.mov → video/mp4` (treat `.mov` as `video/mp4` for playback compatibility).
 
 ### 9.5 — `MessageBubble` media display (`src/views/chats/MessageBubble.tsx`)
 
-- [ ] If `chatMediaFiles` is present and non-empty, render the media inline above (or instead of) the ghost label. Behavior by file count:
+- [x] If `chatMediaFiles` is present and non-empty, render the media inline above (or instead of) the ghost label. Behavior by file count:
   - **1 file:** render full-width within the bubble, capped at a max-height (e.g. 320px) to avoid giant media in the message flow.
   - **2–4 files:** 2-column grid within the bubble.
   - **5+ files:** 3-column grid with a "+N" overflow badge on the last visible tile.
-- [ ] **Image** (`.jpg`, `.png`, `.webp`, `.heif`): `<img>` with `loading="lazy"`, `object-fit: cover`, click → opens `<MediaLightbox>`.
-- [ ] **GIF** (`.gif`): `<img>` (auto-plays in browser). No additional controls needed.
-- [ ] **Video** (`.mp4`, `.mov`): `<video controls>` element. For mobile: tap to expand to lightbox. Respect `prefers-reduced-motion` for autoplay.
-- [ ] **Audio note** (`Media Type: NOTE`, `.mp4` audio-only file): render a compact audio waveform-style pill with a play/pause button (HTML5 `<audio>` element, not `<video>`).
-- [ ] Media files are loaded from the `mediaFiles` Dexie table via `URL.createObjectURL(blob)` — same pattern as the memories gallery. Revoke Object URLs on unmount.
-- [ ] Ghost labels (`📷 Photo`, `🎵 Note`, etc.) remain for messages where `chatMediaFiles` is absent or empty — no regression.
+- [x] **Image** (`.jpg`, `.png`, `.webp`, `.heif`): `<img>` with `loading="lazy"`, `object-fit: cover`, click → opens `<MediaLightbox>`.
+- [x] **GIF** (`.gif`): `<img>` (auto-plays in browser). No additional controls needed.
+- [x] **Video** (`.mp4`, `.mov`): `<video controls>` element. For mobile: tap to expand to lightbox. Respect `prefers-reduced-motion` for autoplay.
+- [x] **Audio note** (`Media Type: NOTE`, `.mp4` audio-only file): render a compact audio waveform-style pill with a play/pause button (HTML5 `<audio>` element, not `<video>`).
+- [x] Media files are loaded from the `mediaFiles` Dexie table via `URL.createObjectURL(blob)` — same pattern as the memories gallery. Revoke Object URLs on unmount.
+- [x] Ghost labels (`📷 Photo`, `🎵 Note`, etc.) remain for messages where `chatMediaFiles` is absent or empty — no regression.
 
 ### 9.6 — Orphaned `media~` strip (deferred / best-effort)
 
@@ -639,8 +639,8 @@ The 74 `media~` files and their overlay siblings cannot be linked to specific me
 
 ### 9.7 — Unit tests
 
-- [ ] `tests/parsers/chatMedia.test.ts` — happy path (IDs match), partial match (some IDs missing), multi-ID message, zero-media message, `NOTE` type.
-- [ ] Component test for `<MessageBubble>` rendering a single image, a 3-file grid, and a NOTE audio pill.
+- [x] `tests/parsers/chatMedia.test.ts` — happy path (IDs match), partial match (some IDs missing), multi-ID message, zero-media message, `NOTE` type.
+- [x] Component test for `<MessageBubble>` rendering a single image, a 3-file grid, and a NOTE audio pill.
 
 ### 9.8 — Commit
 

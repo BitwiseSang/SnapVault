@@ -4,6 +4,7 @@ import { parseChat } from '../parsers/chat'
 import { parseSnaps } from '../parsers/snap'
 import { parseCalls } from '../parsers/call'
 import { parseMemories } from '../parsers/memory'
+import { enrichMessagesWithChatMedia } from '../parsers/chatMedia'
 import { db, StoredMediaFile } from './schema'
 
 export interface ImportProgress {
@@ -20,16 +21,21 @@ export async function runImport(
 ): Promise<ImportResult> {
   const warnings: string[] = []
   const allEvents: AppEvent[] = []
+  const allFiles = await source.listFiles()
 
   // 1. Parse chat_history.json
   onProgress?.({ phase: 'Reading chat history...', current: 1, total: 5 })
   let messageCount = 0
   try {
     const rawChat = await source.readJson('json/chat_history.json')
-    const { events, warnings: chatWarnings } = parseChat(rawChat)
-    allEvents.push(...events)
-    warnings.push(...chatWarnings)
-    messageCount = events.length
+    const { events: rawEvents, warnings: chatWarnings } = parseChat(rawChat)
+    const { events: enrichedEvents, warnings: mediaWarnings } = enrichMessagesWithChatMedia(
+      rawEvents,
+      allFiles,
+    )
+    allEvents.push(...enrichedEvents)
+    warnings.push(...chatWarnings, ...mediaWarnings)
+    messageCount = enrichedEvents.length
   } catch (err) {
     warnings.push(`Could not read json/chat_history.json: ${(err as Error).message}`)
   }
@@ -64,7 +70,6 @@ export async function runImport(
   onProgress?.({ phase: 'Reading memories and media...', current: 4, total: 5 })
   let memoryCount = 0
   let timestampsPreserved = true
-  const allFiles = await source.listFiles()
   try {
     let rawMemories: unknown = null
     try {
@@ -93,6 +98,23 @@ export async function runImport(
     if (f.path.startsWith('memories/') && !f.path.endsWith('memories.html')) {
       const ext = f.path.slice(f.path.lastIndexOf('.') + 1).toLowerCase()
       const mimeType = ext === 'mp4' ? 'video/mp4' : ext === 'png' ? 'image/png' : 'image/jpeg'
+      mediaToStore.push({
+        path: f.path,
+        blob: f.file,
+        mimeType,
+      })
+    } else if (f.path.startsWith('chat_media/')) {
+      const ext = f.path.slice(f.path.lastIndexOf('.') + 1).toLowerCase()
+      let mimeType = 'image/jpeg'
+      if (ext === 'mp4' || ext === 'mov') {
+        mimeType = 'video/mp4'
+      } else if (ext === 'png') {
+        mimeType = 'image/png'
+      } else if (ext === 'gif') {
+        mimeType = 'image/gif'
+      } else if (ext === 'webp') {
+        mimeType = 'image/webp'
+      }
       mediaToStore.push({
         path: f.path,
         blob: f.file,

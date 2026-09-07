@@ -13,6 +13,14 @@ describe('normalizeExportPath', () => {
     )
   })
 
+  it('strips top-level wrapper directory prefix for chat_media', () => {
+    expect(
+      normalizeExportPath(
+        'export/chat_media/2026-08-24_b~EiASFURjcTBDMVVtUlhTd1BSZjFkUUpEMzIBD0gFUARgAQ.jpg',
+      ),
+    ).toBe('chat_media/2026-08-24_b~EiASFURjcTBDMVVtUlhTd1BSZjFkUUpEMzIBD0gFUARgAQ.jpg')
+  })
+
   it('normalizes backslashes to forward slashes', () => {
     expect(normalizeExportPath('export\\json\\chat_history.json')).toBe('json/chat_history.json')
   })

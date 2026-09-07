@@ -14,6 +14,7 @@ export interface MessageEvent extends BaseEvent {
   content: string | null
   isSaved: boolean
   mediaIds: string
+  chatMediaFiles?: string[]
   conversationTitle: string | null
 }
 
