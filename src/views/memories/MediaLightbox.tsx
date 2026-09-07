@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
   X,
   ChevronLeft,
@@ -7,6 +7,8 @@ import {
   Calendar,
   Film,
   Image as ImageIcon,
+  ZoomIn,
+  ZoomOut,
 } from 'lucide-react'
 import { MemoryEvent } from '../../models/events'
 import { useMediaUrl } from '../../db/mediaUrl'
@@ -22,6 +24,9 @@ interface MediaLightboxProps {
   onNext: () => void
 }
 
+const ZOOM_SCALES = [1, 2, 3] as const
+const ZOOM_LABELS = ['1x', '2x', '3x'] as const
+
 export function MediaLightbox({
   memory,
   currentIndex,
@@ -33,13 +38,69 @@ export function MediaLightbox({
   const { url: mainUrl, isLoading } = useMediaUrl(memory?.mediaFile)
   const { url: overlayUrl } = useMediaUrl(memory?.overlayFile)
 
+  const [zoomLevel, setZoomLevel] = useState<0 | 1 | 2>(0)
+  const [transformOrigin, setTransformOrigin] = useState<string>('50% 50%')
+
+  const isImage = memory?.mediaKind === 'Image'
+
+  // Reset zoom whenever active memory changes
+  useEffect(() => {
+    setZoomLevel(0)
+    setTransformOrigin('50% 50%')
+  }, [memory?.id])
+
+  const cycleZoom = useCallback(
+    (clientX?: number, clientY?: number, targetRect?: DOMRect) => {
+      if (!isImage) return
+      setZoomLevel((prev) => {
+        const next = ((prev + 1) % 3) as 0 | 1 | 2
+        if (next === 0) {
+          setTransformOrigin('50% 50%')
+        } else if (clientX !== undefined && clientY !== undefined && targetRect) {
+          const x = Math.max(
+            0,
+            Math.min(100, ((clientX - targetRect.left) / targetRect.width) * 100),
+          )
+          const y = Math.max(
+            0,
+            Math.min(100, ((clientY - targetRect.top) / targetRect.height) * 100),
+          )
+          setTransformOrigin(`${x.toFixed(1)}% ${y.toFixed(1)}%`)
+        }
+        return next
+      })
+    },
+    [isImage],
+  )
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (zoomLevel === 0 || !isImage) return
+    const rect = e.currentTarget.getBoundingClientRect()
+    const x = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100))
+    const y = Math.max(0, Math.min(100, ((e.clientY - rect.top) / rect.height) * 100))
+    setTransformOrigin(`${x.toFixed(1)}% ${y.toFixed(1)}%`)
+  }
+
+  const handleImageClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    e.stopPropagation()
+    if (!isImage) return
+    cycleZoom(e.clientX, e.clientY, e.currentTarget.getBoundingClientRect())
+  }
+
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape') {
+        if (zoomLevel > 0) {
+          setZoomLevel(0)
+          setTransformOrigin('50% 50%')
+        } else {
+          onClose()
+        }
+      }
       if (e.key === 'ArrowLeft') onPrev()
       if (e.key === 'ArrowRight') onNext()
     },
-    [onClose, onPrev, onNext],
+    [onClose, onPrev, onNext, zoomLevel],
   )
 
   useEffect(() => {
@@ -135,8 +196,11 @@ export function MediaLightbox({
 
       {/* Main media display */}
       <div
-        className="relative max-h-[82vh] max-w-[90vw] flex items-center justify-center overflow-hidden rounded-2xl shadow-2xl"
-        onClick={(e) => e.stopPropagation()}
+        className={`relative max-h-[82vh] max-w-[90vw] flex items-center justify-center overflow-hidden rounded-2xl shadow-2xl group ${
+          isImage ? (zoomLevel === 2 ? 'cursor-zoom-out' : 'cursor-zoom-in') : ''
+        }`}
+        onClick={handleImageClick}
+        onMouseMove={handleMouseMove}
       >
         {isLoading && (
           <div className="w-64 h-96 flex items-center justify-center">
@@ -144,8 +208,40 @@ export function MediaLightbox({
           </div>
         )}
 
+        {/* Floating zoom tool badge: visible on hover */}
+        {isImage && mainUrl && (
+          <div className="absolute top-3.5 right-3.5 z-30 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-auto">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                cycleZoom()
+              }}
+              aria-label={`Zoom level ${ZOOM_LABELS[zoomLevel]}. Click to zoom.`}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/75 hover:bg-black/90 text-white text-xs font-semibold backdrop-blur-md border border-white/20 shadow-lg cursor-pointer transition select-none"
+            >
+              {zoomLevel === 2 ? (
+                <ZoomOut className="w-3.5 h-3.5 text-accent" />
+              ) : (
+                <ZoomIn className="w-3.5 h-3.5 text-accent" />
+              )}
+              <span>{ZOOM_LABELS[zoomLevel]}</span>
+            </button>
+          </div>
+        )}
+
         {mainUrl && (
-          <div className="relative inline-block max-h-[82vh]">
+          <div
+            className="relative inline-block max-h-[82vh] transition-transform duration-200 ease-out"
+            style={
+              isImage
+                ? {
+                    transform: `scale(${ZOOM_SCALES[zoomLevel]})`,
+                    transformOrigin,
+                  }
+                : undefined
+            }
+          >
             {memory.mediaKind === 'Video' ? (
               <video
                 src={mainUrl}
@@ -158,7 +254,8 @@ export function MediaLightbox({
               <img
                 src={mainUrl}
                 alt="Snapchat Memory"
-                className="max-h-[82vh] w-auto rounded-2xl object-contain shadow-lg"
+                draggable={false}
+                className="max-h-[82vh] w-auto rounded-2xl object-contain shadow-lg select-none"
               />
             )}
 
@@ -167,7 +264,8 @@ export function MediaLightbox({
               <img
                 src={overlayUrl}
                 alt="Overlay"
-                className="absolute inset-0 w-full h-full object-contain pointer-events-none rounded-2xl z-10"
+                draggable={false}
+                className="absolute inset-0 w-full h-full object-contain pointer-events-none rounded-2xl z-10 select-none"
               />
             )}
           </div>
