@@ -63,6 +63,7 @@ export async function runImport(
   // 4. Parse memories
   onProgress?.({ phase: 'Reading memories and media...', current: 4, total: 5 })
   let memoryCount = 0
+  let timestampsPreserved = true
   const allFiles = await source.listFiles()
   try {
     let rawMemories: unknown = null
@@ -72,10 +73,15 @@ export async function runImport(
       warnings.push('json/memories_history.json not found, parsing memories from files only')
     }
 
-    const { events, warnings: memWarnings } = parseMemories(rawMemories, allFiles)
+    const {
+      events,
+      warnings: memWarnings,
+      timestampsPreserved: memTsPreserved,
+    } = parseMemories(rawMemories, allFiles)
     allEvents.push(...events)
     warnings.push(...memWarnings)
     memoryCount = events.length
+    timestampsPreserved = memTsPreserved
   } catch (err) {
     warnings.push(`Error parsing memories: ${(err as Error).message}`)
   }
@@ -105,6 +111,7 @@ export async function runImport(
     callCount,
     memoryCount,
     warnings,
+    timestampsPreserved,
   }
 
   await db.transaction('rw', [db.events, db.meta, db.mediaFiles], async () => {
@@ -131,5 +138,6 @@ export async function runImport(
     memoryCount,
     warnings,
     importedAt,
+    timestampsPreserved,
   }
 }

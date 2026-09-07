@@ -291,4 +291,135 @@ describe('parseMemories', () => {
     expect(afternoonEvent?.timestamp).toBe('2025-01-13T14:00:00.000Z')
     expect(afternoonEvent?.location).toBe('Latitude, Longitude: -0.1676, 35.9662')
   })
+
+  it('reports timestampsPreserved=true when file mtimes span a reasonable range', () => {
+    const rawJson = {
+      'Saved Media': [
+        {
+          Date: '2025-01-13 08:00:00 UTC',
+          'Media Type': 'Image',
+          Location: 'Latitude, Longitude: 0.5195, 35.2750',
+          'Download Link': '',
+          'Media Download Url': '',
+        },
+        {
+          Date: '2025-01-13 14:00:00 UTC',
+          'Media Type': 'Image',
+          Location: 'Latitude, Longitude: -0.1676, 35.9662',
+          'Download Link': '',
+          'Media Download Url': '',
+        },
+        {
+          Date: '2025-02-10 10:00:00 UTC',
+          'Media Type': 'Image',
+          Location: 'Latitude, Longitude: 0.5, 35.3',
+          'Download Link': '',
+          'Media Download Url': '',
+        },
+        {
+          Date: '2025-02-10 16:00:00 UTC',
+          'Media Type': 'Image',
+          Location: 'Latitude, Longitude: 0.6, 35.4',
+          'Download Link': '',
+          'Media Download Url': '',
+        },
+      ],
+    }
+
+    const dummyBlob = new Blob([''], { type: 'image/jpeg' })
+    // Timestamps 6+ hours apart on each day → well-preserved
+    const allFiles: IngestedFile[] = [
+      {
+        path: 'memories/2025-01-13_aaaaaaaa-1111-1111-1111-111111111111-main.jpg',
+        file: dummyBlob,
+        lastModified: 1736755200000, // 08:00 UTC
+      },
+      {
+        path: 'memories/2025-01-13_bbbbbbbb-2222-2222-2222-222222222222-main.jpg',
+        file: dummyBlob,
+        lastModified: 1736776800000, // 14:00 UTC
+      },
+      {
+        path: 'memories/2025-02-10_cccccccc-3333-3333-3333-333333333333-main.jpg',
+        file: dummyBlob,
+        lastModified: 1739181600000, // 10:00 UTC Feb 10
+      },
+      {
+        path: 'memories/2025-02-10_dddddddd-4444-4444-4444-444444444444-main.jpg',
+        file: dummyBlob,
+        lastModified: 1739203200000, // 16:00 UTC Feb 10
+      },
+    ]
+
+    const { timestampsPreserved, warnings } = parseMemories(rawJson, allFiles)
+    expect(timestampsPreserved).toBe(true)
+    expect(warnings.some((w) => w.includes('GPS location pairing'))).toBe(false)
+  })
+
+  it('reports timestampsPreserved=false and emits a warning when all files share the same timestamp', () => {
+    const extractionTime = 1736755200000 // all files reset to ZIP-extraction time
+
+    const rawJson = {
+      'Saved Media': [
+        {
+          Date: '2025-01-13 08:00:00 UTC',
+          'Media Type': 'Image',
+          Location: 'Latitude, Longitude: 0.5195, 35.2750',
+          'Download Link': '',
+          'Media Download Url': '',
+        },
+        {
+          Date: '2025-01-13 14:00:00 UTC',
+          'Media Type': 'Image',
+          Location: 'Latitude, Longitude: -0.1676, 35.9662',
+          'Download Link': '',
+          'Media Download Url': '',
+        },
+        {
+          Date: '2025-02-10 10:00:00 UTC',
+          'Media Type': 'Image',
+          Location: 'Latitude, Longitude: 0.5, 35.3',
+          'Download Link': '',
+          'Media Download Url': '',
+        },
+        {
+          Date: '2025-02-10 16:00:00 UTC',
+          'Media Type': 'Image',
+          Location: 'Latitude, Longitude: 0.6, 35.4',
+          'Download Link': '',
+          'Media Download Url': '',
+        },
+      ],
+    }
+
+    const dummyBlob = new Blob([''], { type: 'image/jpeg' })
+    // All files have the same lastModified = ZIP extraction time (unpreserved)
+    const allFiles: IngestedFile[] = [
+      {
+        path: 'memories/2025-01-13_aaaaaaaa-1111-1111-1111-111111111111-main.jpg',
+        file: dummyBlob,
+        lastModified: extractionTime,
+      },
+      {
+        path: 'memories/2025-01-13_bbbbbbbb-2222-2222-2222-222222222222-main.jpg',
+        file: dummyBlob,
+        lastModified: extractionTime,
+      },
+      {
+        path: 'memories/2025-02-10_cccccccc-3333-3333-3333-333333333333-main.jpg',
+        file: dummyBlob,
+        lastModified: extractionTime,
+      },
+      {
+        path: 'memories/2025-02-10_dddddddd-4444-4444-4444-444444444444-main.jpg',
+        file: dummyBlob,
+        lastModified: extractionTime,
+      },
+    ]
+
+    const { timestampsPreserved, warnings } = parseMemories(rawJson, allFiles)
+    expect(timestampsPreserved).toBe(false)
+    expect(warnings[0]).toContain('GPS location pairing may be inaccurate')
+    expect(warnings[0]).toContain('file timestamps were not preserved')
+  })
 })

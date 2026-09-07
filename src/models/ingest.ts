@@ -18,6 +18,8 @@ export interface ImportResult {
   warnings: string[]
   folderName?: string
   importedAt: string // ISO timestamp
+  /** True if memory file timestamps were reliably preserved from ZIP extraction. */
+  timestampsPreserved: boolean
 }
 
 export interface ImportMetaRecord {
@@ -29,4 +31,7 @@ export interface ImportMetaRecord {
   callCount: number
   memoryCount: number
   warnings: string[]
+  /** True if memory file timestamps were reliably preserved from ZIP extraction.
+   *  Optional because older DB records predate this field; treat absence as true. */
+  timestampsPreserved?: boolean
 }

@@ -68,7 +68,9 @@ export function ImportDebug() {
   const handleCheckMeta = async () => {
     const meta = await getLatestImportMeta()
     if (meta) {
-      setResult(meta)
+      // Normalize records predating the timestampsPreserved field: treat absence as true
+      // so we don't show a spurious GPS warning for old imports.
+      setResult({ ...meta, timestampsPreserved: meta.timestampsPreserved ?? true })
     } else {
       setError('No previous import found in database')
     }
@@ -177,6 +179,32 @@ export function ImportDebug() {
               </p>
             </div>
           </div>
+
+          {!result.timestampsPreserved && (
+            <div className="bg-orange-500/10 border border-orange-500/40 p-4 rounded-lg space-y-2">
+              <div className="flex items-start gap-2">
+                <span className="text-orange-400 text-lg leading-none mt-0.5" aria-hidden>
+                  ⚠️
+                </span>
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold text-orange-300">
+                    Snap Map GPS locations may be inaccurate
+                  </p>
+                  <p className="text-xs text-orange-200/80 leading-relaxed">
+                    Your memory files don't have preserved modification timestamps — this usually
+                    means the Snapchat ZIP was extracted with a tool that reset all file dates.
+                    Without timestamps, photos taken on the same day can't be matched to their
+                    correct GPS coordinates.
+                  </p>
+                  <p className="text-xs text-orange-200/60 leading-relaxed">
+                    <strong className="text-orange-200">Fix:</strong> Re-extract the ZIP using macOS
+                    Archive Utility, 7-Zip, or Windows built-in "Extract All", then reimport your
+                    data.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {result.warnings.length > 0 && (
             <div className="bg-yellow-500/10 border border-yellow-500/30 p-3 rounded-lg text-xs space-y-1 text-yellow-300">

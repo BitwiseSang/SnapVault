@@ -13,6 +13,13 @@ interface RawMemoryEntry {
 export interface ParseMemoryResult {
   events: MemoryEvent[]
   warnings: string[]
+  /**
+   * True when file lastModified timestamps appear to be reliably preserved from
+   * the ZIP extraction (spread > 1 hour across multi-day exports).
+   * False means all files share nearly identical timestamps — pairing is likely
+   * falling back to arbitrary UUID sort and GPS locations may be wrong.
+   */
+  timestampsPreserved: boolean
 }
 
 /**
@@ -25,6 +32,7 @@ export interface ParseMemoryResult {
 export function parseMemories(rawJson: unknown, allFiles: IngestedFile[]): ParseMemoryResult {
   const events: MemoryEvent[] = []
   const warnings: string[] = []
+  let timestampsPreserved = true
 
   // 1. Index raw JSON entries by date
   const jsonByDate = new Map<string, RawMemoryEntry[]>()
@@ -103,6 +111,42 @@ export function parseMemories(rawJson: unknown, allFiles: IngestedFile[]): Parse
     }
   }
 
+  // Detect whether file lastModified timestamps were preserved by the ZIP extractor.
+  // We look at dates that have 2+ files: if ALL of those files share the same timestamp
+  // (or all timestamps cluster within 1 hour), the extractor almost certainly set every
+  // file's mtime to the extraction time. Sorting by such timestamps is no better than
+  // sorting by UUID, so we warn the user.
+  const multiFileDates = new Map<string, number[]>()
+  for (const f of mainFiles) {
+    if (f.lastModified !== undefined) {
+      const arr = multiFileDates.get(f.datePrefix) ?? []
+      arr.push(f.lastModified)
+      multiFileDates.set(f.datePrefix, arr)
+    }
+  }
+
+  const timestampPool: number[] = []
+  for (const [, times] of multiFileDates) {
+    if (times.length >= 2) {
+      timestampPool.push(...times)
+    }
+  }
+
+  if (timestampPool.length >= 4) {
+    // Only flag if we have enough multi-file dates to make a judgment
+    const minTs = Math.min(...timestampPool)
+    const maxTs = Math.max(...timestampPool)
+    const spreadHours = (maxTs - minTs) / (1000 * 60 * 60)
+    if (spreadHours < 1) {
+      timestampsPreserved = false
+      warnings.unshift(
+        'GPS location pairing may be inaccurate: file timestamps were not preserved when ' +
+          'the Snapchat ZIP was extracted. Re-extract using macOS Archive Utility, 7-Zip, or ' +
+          'a tool that preserves file modification dates, then reimport.',
+      )
+    }
+  }
+
   // Sort main files: by datePrefix, then chronologically by lastModified (if available), then by path
   mainFiles.sort((a, b) => {
     if (a.datePrefix !== b.datePrefix) {
@@ -177,5 +221,5 @@ export function parseMemories(rawJson: unknown, allFiles: IngestedFile[]): Parse
     })
   }
 
-  return { events, warnings }
+  return { events, warnings, timestampsPreserved }
 }
