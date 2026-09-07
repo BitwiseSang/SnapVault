@@ -17,6 +17,11 @@
 
 ```
 <export-root>/
+├── chat_media/
+│   ├── <YYYY-MM-DD>_b~<opaque-id>.(jpg|mp4|png|gif|webp|mov) # media sent in chats matching Media IDs
+│   ├── <YYYY-MM-DD>_media~<name>.(mp4|...)                   # group chat / snap camera media
+│   ├── <YYYY-MM-DD>_overlay~<name>.(png|webp)                # optional sticker/caption layer
+│   └── <YYYY-MM-DD>_thumbnail~<name>.jpg                     # video preview thumbnails
 ├── html/
 │   ├── chat_history/subpage_<username>.html   # per-contact chat, Snapchat's own viewer — NOT our source of truth
 │   ├── snap_history.html
@@ -34,7 +39,7 @@
     └── <YYYY-MM-DD>_<uuid>-overlay.png         # optional sticker/caption layer for the same memory
 ```
 
-**We treat `json/*.json` as the source of truth.** The `html/` folder is Snapchat's own (limited) renderer of a subset of this same data and is not parsed by this app.
+**We treat `json/*.json` as the source of truth.** The `html/` folder is Snapchat's own (limited) renderer of a subset of this same data and is not parsed by this app. Media files in `memories/` and `chat_media/` provide the binary assets joined back to the JSON records.
 
 ### Verified schemas
 
@@ -66,9 +71,25 @@ Top-level object keyed by **contact username**. Each value is an array of messag
 
 Observed `Media Type` values: `TEXT`, `MEDIA`, `NOTE`, `STICKER`, `LOCATION`, `SHARE`, `SHARESAVEDSTORY`, `STATUS`
 
-**Important:** `Content` is `null` for the vast majority of messages, including `TEXT`-type ones. Snapchat does not export the text of ephemeral messages. Only messages explicitly saved by a participant may carry a non-null (but possibly empty string) `Content`. Full-text search over chat will therefore only cover the saved-message subset.
+**Important:**
 
-Scale observed in sample data: **346 contacts, ~21,800 messages**.
+- `Content` is `null` for the vast majority of messages, including `TEXT`-type ones. Snapchat does not export the text of ephemeral messages. Only messages explicitly saved by a participant may carry a non-null (but possibly empty string) `Content`. Full-text search over chat will therefore only cover the saved-message subset.
+- `Created(microseconds)` is **actually in milliseconds** since epoch (JavaScript timestamp format). Dividing by 1,000 yields Unix timestamp seconds that match `Created` date strings exactly.
+- `Media IDs` contains one or more opaque IDs (delimited by `" | "` if multiple) referencing files located in `chat_media/`.
+
+Scale observed in sample data: **346 contacts, ~21,500 messages, 502 messages with Media IDs**.
+
+---
+
+#### `chat_media/`
+
+Directory containing media sent and saved in chat conversations.
+
+- **913 files** observed in sample data (`.jpg`, `.mp4`, `.png`, `.gif`, `.webp`, `.heif`, `.mov`).
+- Naming format: `<YYYY-MM-DD>_<id-or-name>.<ext>`.
+- Two categories of files:
+  1. **Direct Media ID matches (`b~...` and hex-32)**: 763 files. The `<id-or-name>` matches the entry in `Media IDs` in `chat_history.json` directly. Verified: 578 of 607 Media IDs in JSON have exact file matches (~95% match rate). Unmatched 5% are unexported ephemeral media.
+  2. **Group chat / Snap Camera media (`media~...`, `overlay~...`, `thumbnail~...`)**: 157 files. These do not have corresponding `Media IDs` in `chat_history.json` and are handled via date-based heuristics (e.g. "Shared media from this day" tray).
 
 ---
 
@@ -225,6 +246,7 @@ interface MessageEvent extends BaseEvent {
   content: string | null // raw "Content" — null for most messages
   isSaved: boolean
   mediaIds: string // raw "Media IDs" — empty string when absent
+  chatMediaFiles?: string[] // paths to chat_media/* files matched via mediaIds
   conversationTitle: string | null
 }
 
@@ -263,10 +285,11 @@ type AppEvent = MessageEvent | SnapEvent | CallEvent | MemoryEvent
 
 Dexie (IndexedDB) holds:
 
-- The normalized `AppEvent` table, indexed by `timestamp`, `type`, and `contact`.
-- A small metadata table (export folder name, parse date, counts) so the UI can show "last imported" info and let the user re-import without guessing state.
+- The normalized `AppEvent` table (`events`), indexed by `timestamp`, `type`, and `contact`.
+- A metadata table (`meta`) storing import info (`last_import`).
+- A media table (`mediaFiles`) storing media Blobs and mime types (`path`, `blob`, `mimeType`) for `memories/` and `chat_media/`.
 
-Rationale: re-parsing ~21,000+ messages and ~1,400 memory entries on every page load would be slow. Parse once, persist, and only re-parse on explicit re-import.
+Rationale: re-parsing ~21,000+ messages, ~1,400 memory entries, and ~900 chat media files on every page load would be slow. Parse once, persist, and only re-parse on explicit re-import.
 
 ### Search
 
@@ -296,9 +319,10 @@ App
     └── SearchOverlay    # global, keyboard-triggerable
 ```
 
-## Open questions (post-schema-verification)
+## Design decisions & resolutions
 
-1. **Memories join strategy** — see the detailed options under `memories_history.json` above. Must be decided before the memories parser is written.
-2. **`-overlay.png` files without a JSON entry (or vice versa)** — the linking logic must tolerate mismatches and degrade gracefully (skip/flag rather than crash).
-3. **Group chat support** — `Conversation Title` is non-null for group chats. Determine whether `ChatsView` needs a separate group-chat list or folds them into the same contact list.
-4. **`talk_history.json` empty categories** — `Outgoing Calls`, `Chat Sessions`, and `Game Sessions` are all empty in the observed export. Parsers should handle these gracefully even if they remain empty.
+1. **Memories join strategy** — RESOLVED. Files-driven chronological pairing using file `lastModified` timestamps against sorted JSON candidates.
+2. **`-overlay.png` files** — RESOLVED. Linked via matching base prefix (`YYYY-MM-DD_<uuid>`); missing overlays degrade gracefully.
+3. **Group chat support** — RESOLVED. Folded into the unified contact list, keyed by `Conversation Title` when present.
+4. **`talk_history.json` empty categories** — RESOLVED. Handled gracefully by parser without crashing.
+5. **Chat media join strategy** — RESOLVED. Direct exact matching of `chat_history.json` `Media IDs` (`b~...` and hex-32) to `chat_media/<YYYY-MM-DD>_<id>.<ext>`. Unlinked group chat Snaps (`media~...` / `overlay~...`) handled via date-based heuristics.

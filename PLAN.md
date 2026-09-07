@@ -17,6 +17,7 @@ Phase 5 → Stats view
 Phase 6 → Global search & filters
 Phase 7 → Polish, empty states & accessibility
 Phase 8 → Memories Snap Map
+Phase 9 → Chat media (inline media in conversations)
 ```
 
 Each phase builds on the last and is independently committable. Phases 3–6 can be parallelized once Phase 2 is done if multiple agents are working concurrently.
@@ -529,17 +530,134 @@ pnpm test:run      # CI single-run
 | `feat(map): add memories location map view with leaflet`                     | Phase 8  |
 | `fix(map): resolve map container mounting and video tray thumbnail decoding` | Phase 8  |
 | `feat(map): support CARTO API key via environment variables`                 | Phase 8  |
+| `feat(chat-media): ingest, parse, store, and display chat media`             | Phase 9  |
+
+---
+
+## Phase 9 — Chat media
+
+**Goal:** Display the actual images, videos, GIFs, and audio notes that were sent in chat conversations, inline inside each `MessageBubble`. Currently these messages show a ghost label (e.g. `📷 Photo`); after this phase they will show the real media file.
+
+### Verified schema findings (cross-referenced against `sample_data/`)
+
+> **Do not treat these as assumptions — they were confirmed against real data.**
+
+#### `chat_media/` directory structure
+
+- **913 files** total. Every filename is prefixed with a `YYYY-MM-DD` date (UTC date of the message).
+- **File type breakdown:** `.jpg` (449), `.mp4` (300), `.png` (79), `.gif` (73), `.webp` (9), `.heif` (2), `.mov` (1).
+- **Two distinct kinds of file** exist in `chat_media/`:
+
+  | Kind             | Filename pattern                                                                                          | Count                                 | Join key                                             |
+  | ---------------- | --------------------------------------------------------------------------------------------------------- | ------------------------------------- | ---------------------------------------------------- |
+  | **Primary (b~)** | `YYYY-MM-DD_b~<opaque-ID>.<ext>`                                                                          | 756                                   | Exact `Media IDs` field match in `chat_history.json` |
+  | **Media tilde**  | `YYYY-MM-DD_media~<name>.<ext>` + sibling `overlay~<name>.<ext/webp>` and optional `thumbnail~<name>.jpg` | 74 media + 69 overlays + 7 thumbnails | Date-only heuristic (no direct ID join possible)     |
+  | **Hex-32**       | `YYYY-MM-DD_<32-hex-chars>.<ext>`                                                                         | 7                                     | Exact `Media IDs` field match                        |
+
+#### `chat_history.json` `Media IDs` field
+
+- 502 messages (of 21 467 total) carry a non-empty `Media IDs` field.
+- **607 individual IDs** across those messages (some messages carry multiple IDs joined by `|`).
+- **578 of 607 IDs (95%)** have a matching file in `chat_media/` (`YYYY-MM-DD_<ID>.<ext>`).
+- **29 IDs (5%)** have no file — the media was not included in the export (likely ephemeral snaps that were never saved).
+- **47 messages** carry multiple `Media IDs` — these are multi-media messages (up to 10 files in a single message).
+- Sticker messages (`Media Type: STICKER`) have **no** `Media IDs` — sticker images are not exported.
+- Note messages (`Media Type: NOTE`) **do** carry `Media IDs` — audio notes are exported as `.mp4`.
+- `Created(microseconds)` is **actually milliseconds** (despite the name) — `/ 1000` gives a Unix timestamp in seconds. Verified: 100% of matched pairs have the same `YYYY-MM-DD` between the message date (derived from `Created(microseconds)`) and the file's date prefix.
+
+#### `media~` / `overlay~` / `thumbnail~` files (157 files, not joined by ID)
+
+These files correspond to **group-chat Snaps** sent via the old "Snap Camera" in-chat flow (the `zip` and `Snapchat-XXXXXXXX.zip.nomedia` naming patterns). They cannot be joined to specific messages via `Media IDs` because no ID is written into `chat_history.json` for them. They share the same overlay-compositing structure as `memories/`. The join strategy for these is **date-based best-effort** — present them as an "attachments from this date" fallback strip rather than linked to a specific bubble.
+
+---
+
+### 9.1 — Model updates (`src/models/events.ts` + `src/models/ingest.ts`)
+
+- [ ] Add `chatMediaFiles?: string[]` to `MessageEvent` — an ordered list of `chat_media/<filename>` paths for the media files attached to this message (empty/absent for text-only messages).
+- [ ] Update `IngestSource.listFiles()` and all ingest paths to include `chat_media/` files (currently only `memories/` is enumerated).
+
+### 9.2 — Ingest update (`src/ingest/folder.ts`)
+
+- [ ] Extend `FolderIngestSource` to recursively enumerate `chat_media/` in addition to `memories/`.
+- [ ] No changes needed to the `IngestedFile` type — `path` and `file` are sufficient.
+
+### 9.3 — Chat media parser (`src/parsers/chatMedia.ts`)
+
+New file. Function signature:
+
+```ts
+export function enrichMessagesWithChatMedia(
+  messages: MessageEvent[],
+  allFiles: IngestedFile[],
+): MessageEvent[]
+```
+
+**Algorithm (verified against real schema):**
+
+1. **Index `chat_media/` files by media ID.**
+   Build a `Map<string, string>` from `media-ID → chat_media/<filename>`:
+   - For `b~` files: extract the ID as everything between `YYYY-MM-DD_` and the final `.ext`.
+   - For hex-32 files: same — the 32-char hex string is the ID.
+   - For `media~` / `overlay~` / `thumbnail~` files: collect separately into a `Map<datePrefix, MediaTildeGroup[]>` (grouped by date, not joined by ID).
+
+2. **Walk `messages` in order.** For each message:
+   - If `Media IDs` is non-empty: split on `|`, look up each ID in the index, collect the matched file paths in order → set `chatMediaFiles`.
+   - If `Media IDs` is empty but `Media Type` is `MEDIA` or `NOTE`: leave `chatMediaFiles` absent (no file available; the ghost label remains).
+
+3. **Do not throw on missing files.** If an ID resolves to no file, skip it silently (the 5% unmatched case). Only push a warning into the result if >20% of IDs within a single contact thread go unmatched (indicates a structural problem worth surfacing).
+
+4. **Return the enriched `MessageEvent[]`** plus `warnings: string[]`.
+
+> **Not in scope for 9.3:** joining `media~` files to specific messages. Those will be surfaced as a separate "media strip" (see 9.6).
+
+### 9.4 — DB / import wiring (`src/db/import.ts` + `src/db/schema.ts`)
+
+- [ ] After `parseChat` runs, call `enrichMessagesWithChatMedia(chatEvents, allFiles)` to attach `chatMediaFiles` before `bulkAdd`.
+- [ ] Add `chat_media/` files to the `mediaFiles` Dexie table (same as memories — store `path`, `blob`, `mimeType`).
+- [ ] `mimeType` mapping for chat media: `.jpg/.jpeg/.heif → image/jpeg`, `.png → image/png`, `.gif → image/gif`, `.webp → image/webp`, `.mp4/.mov → video/mp4` (treat `.mov` as `video/mp4` for playback compatibility).
+
+### 9.5 — `MessageBubble` media display (`src/views/chats/MessageBubble.tsx`)
+
+- [ ] If `chatMediaFiles` is present and non-empty, render the media inline above (or instead of) the ghost label. Behavior by file count:
+  - **1 file:** render full-width within the bubble, capped at a max-height (e.g. 320px) to avoid giant media in the message flow.
+  - **2–4 files:** 2-column grid within the bubble.
+  - **5+ files:** 3-column grid with a "+N" overflow badge on the last visible tile.
+- [ ] **Image** (`.jpg`, `.png`, `.webp`, `.heif`): `<img>` with `loading="lazy"`, `object-fit: cover`, click → opens `<MediaLightbox>`.
+- [ ] **GIF** (`.gif`): `<img>` (auto-plays in browser). No additional controls needed.
+- [ ] **Video** (`.mp4`, `.mov`): `<video controls>` element. For mobile: tap to expand to lightbox. Respect `prefers-reduced-motion` for autoplay.
+- [ ] **Audio note** (`Media Type: NOTE`, `.mp4` audio-only file): render a compact audio waveform-style pill with a play/pause button (HTML5 `<audio>` element, not `<video>`).
+- [ ] Media files are loaded from the `mediaFiles` Dexie table via `URL.createObjectURL(blob)` — same pattern as the memories gallery. Revoke Object URLs on unmount.
+- [ ] Ghost labels (`📷 Photo`, `🎵 Note`, etc.) remain for messages where `chatMediaFiles` is absent or empty — no regression.
+
+### 9.6 — Orphaned `media~` strip (deferred / best-effort)
+
+The 74 `media~` files and their overlay siblings cannot be linked to specific messages. Instead:
+
+- [ ] Add a collapsible **"Shared media from this day"** strip at the bottom of the conversation pane for any date where unlinked `media~` files exist. Show them as thumbnails in a horizontal scroll row.
+- [ ] These are date-matched, not message-matched — they appear at the date separator for that day, not inside a specific bubble.
+- [ ] This is a **best-effort fallback** — document explicitly in a comment that these files have no reliable message link.
+
+### 9.7 — Unit tests
+
+- [ ] `tests/parsers/chatMedia.test.ts` — happy path (IDs match), partial match (some IDs missing), multi-ID message, zero-media message, `NOTE` type.
+- [ ] Component test for `<MessageBubble>` rendering a single image, a 3-file grid, and a NOTE audio pill.
+
+### 9.8 — Commit
+
+- [ ] Commit: `feat(chat-media): ingest, parse, store, and display chat media`
 
 ---
 
 ## Design decisions — all resolved ✅
 
-| #   | Decision                          | Choice                                                                                                                   |
-| --- | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| 1   | **Memories join strategy**        | Files-drive; JSON is metadata-only. Files are primary source of truth.                                                   |
-| 2   | **Group chat display**            | Folded into the contact list (keyed by `Conversation Title` when non-null).                                              |
-| 3   | **Charting approach**             | Hand-rolled SVG — `<BarChart>` and `<DonutChart>` in `src/components/charts/`.                                           |
-| 4   | **Masonry layout**                | JS-calculated positions (`top`/`left`) with `ResizeObserver`; viewport-intersect virtualization.                         |
-| 5   | **Map rendering & tile provider** | Leaflet with CARTO Dark Matter basemap (authenticated via `VITE_CARTO_API_KEY`), falling back to standard OpenStreetMap. |
-| 6   | **Map clustering strategy**       | Pure client-side dynamic grid clustering (`clusterGeoMemories`) adapting to zoom level (zero external geocoding calls).  |
-| 7   | **Video thumbnails in map tray**  | HTML5 `<video>` elements with Blob object URLs and `preload="metadata"` for local frame extraction.                      |
+| #   | Decision                          | Choice                                                                                                                                                                                                                                                                                                                              |
+| --- | --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | **Memories join strategy**        | Files-drive; JSON is metadata-only. Files are primary source of truth.                                                                                                                                                                                                                                                              |
+| 2   | **Group chat display**            | Folded into the contact list (keyed by `Conversation Title` when non-null).                                                                                                                                                                                                                                                         |
+| 3   | **Charting approach**             | Hand-rolled SVG — `<BarChart>` and `<DonutChart>` in `src/components/charts/`.                                                                                                                                                                                                                                                      |
+| 4   | **Masonry layout**                | JS-calculated positions (`top`/`left`) with `ResizeObserver`; viewport-intersect virtualization.                                                                                                                                                                                                                                    |
+| 5   | **Map rendering & tile provider** | Leaflet with CARTO Dark Matter basemap (authenticated via `VITE_CARTO_API_KEY`), falling back to standard OpenStreetMap.                                                                                                                                                                                                            |
+| 6   | **Map clustering strategy**       | Pure client-side dynamic grid clustering (`clusterGeoMemories`) adapting to zoom level (zero external geocoding calls).                                                                                                                                                                                                             |
+| 7   | **Video thumbnails in map tray**  | HTML5 `<video>` elements with Blob object URLs and `preload="metadata"` for local frame extraction.                                                                                                                                                                                                                                 |
+| 8   | **Chat media join strategy**      | Media IDs join: exact `b~<ID>` match between `chat_history.json` `Media IDs` field and `chat_media/YYYY-MM-DD_<ID>.<ext>` filename. 95% match rate verified on real data. `media~` / `overlay~` files (group-chat Snaps without ID) surfaced as a date-based "Shared media from this day" strip — not linked to individual bubbles. |
+| 9   | **`Created(microseconds)` field** | Despite the name, values are **milliseconds** since epoch (JS timestamps). Divide by 1000 for Unix seconds. Confirmed: all matched file date prefixes agree with message date derived this way.                                                                                                                                     |
