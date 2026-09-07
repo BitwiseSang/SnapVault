@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { MemoryCard } from '../../../src/views/memories/MemoryCard'
 import { MediaLightbox } from '../../../src/views/memories/MediaLightbox'
 import { MemoryEvent } from '../../../src/models/events'
@@ -34,8 +34,13 @@ class MockIntersectionObserver {
 }
 
 window.IntersectionObserver = MockIntersectionObserver as unknown as typeof IntersectionObserver
+HTMLMediaElement.prototype.play = vi.fn().mockResolvedValue(undefined)
+HTMLMediaElement.prototype.pause = vi.fn()
 
 describe('MemoryCard', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
   it('renders date label and location when provided', () => {
     const memory: MemoryEvent = {
       id: 'mem_1',
@@ -49,6 +54,44 @@ describe('MemoryCard', () => {
     render(<MemoryCard memory={memory} onClick={() => {}} />)
     expect(screen.getByText(/Sep 2, 2026/i)).toBeDefined()
     expect(screen.getByText('0.55, 35.24')).toBeDefined()
+  })
+
+  it('plays video on card hover and pauses on mouse leave', () => {
+    const videoMemory: MemoryEvent = {
+      id: 'mem_vid_1',
+      type: 'memory',
+      timestamp: '2026-09-02T15:27:36.000Z',
+      mediaFile: 'memories/2026-09-02_xyz-main.mp4',
+      mediaKind: 'Video',
+      location: 'Latitude, Longitude: 0.55, 35.24',
+    }
+
+    const { container } = render(<MemoryCard memory={videoMemory} onClick={() => {}} />)
+    const card = container.firstChild as HTMLElement
+    expect(card).not.toBeNull()
+
+    // Hover triggers play on first hover
+    fireEvent.mouseEnter(card)
+    expect(HTMLMediaElement.prototype.play).toHaveBeenCalledTimes(1)
+
+    // Leaving pauses playback
+    fireEvent.mouseLeave(card)
+    expect(HTMLMediaElement.prototype.pause).toHaveBeenCalled()
+  })
+
+  it('renders video indicator with pointer-events-none to avoid intercepting hover', () => {
+    const videoMemory: MemoryEvent = {
+      id: 'mem_vid_2',
+      type: 'memory',
+      timestamp: '2026-09-02T15:27:36.000Z',
+      mediaFile: 'memories/2026-09-02_xyz-main.mp4',
+      mediaKind: 'Video',
+      location: '',
+    }
+
+    const { container } = render(<MemoryCard memory={videoMemory} onClick={() => {}} />)
+    const badge = container.querySelector('.pointer-events-none.backdrop-blur-xs')
+    expect(badge).not.toBeNull()
   })
 })
 

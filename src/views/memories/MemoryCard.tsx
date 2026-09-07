@@ -11,7 +11,9 @@ interface MemoryCardProps {
 
 export function MemoryCard({ memory, onClick }: MemoryCardProps) {
   const [isInView, setIsInView] = useState(false)
+  const [isHovered, setIsHovered] = useState(false)
   const cardRef = useRef<HTMLDivElement>(null)
+  const videoRef = useRef<HTMLVideoElement>(null)
 
   // IntersectionObserver: only fetch blobs when near or in viewport
   useEffect(() => {
@@ -32,10 +34,28 @@ export function MemoryCard({ memory, onClick }: MemoryCardProps) {
     return () => observer.disconnect()
   }, [])
 
+  const shouldFetchMedia = isInView || isHovered
   const { url: mainUrl, isLoading: isLoadingMain } = useMediaUrl(
-    isInView ? memory.mediaFile : undefined,
+    shouldFetchMedia ? memory.mediaFile : undefined,
   )
-  const { url: overlayUrl } = useMediaUrl(isInView ? memory.overlayFile : undefined)
+  const { url: overlayUrl } = useMediaUrl(shouldFetchMedia ? memory.overlayFile : undefined)
+
+  // Reactively manage video playback based on hover state and media URL readiness
+  useEffect(() => {
+    const video = videoRef.current
+    if (!video || memory.mediaKind !== 'Video') return
+
+    if (isHovered) {
+      void video.play().catch(() => {})
+    } else {
+      video.pause()
+      video.currentTime = 0
+    }
+
+    return () => {
+      video.pause()
+    }
+  }, [isHovered, mainUrl, memory.mediaKind])
 
   const formatDate = (iso: string) => {
     try {
@@ -61,6 +81,8 @@ export function MemoryCard({ memory, onClick }: MemoryCardProps) {
     <div
       ref={cardRef}
       onClick={() => onClick(memory)}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
       className="group relative rounded-2xl overflow-hidden bg-surface border border-border/80 shadow-xs hover:shadow-md hover:border-text-secondary/40 transition-all duration-200 cursor-pointer select-none"
     >
       {/* Media container */}
@@ -75,19 +97,13 @@ export function MemoryCard({ memory, onClick }: MemoryCardProps) {
           <>
             {memory.mediaKind === 'Video' ? (
               <video
+                ref={videoRef}
                 src={mainUrl}
                 muted
                 loop
                 playsInline
                 preload="metadata"
                 className="w-full h-full object-cover"
-                onMouseEnter={(e) => {
-                  void e.currentTarget.play().catch(() => {})
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.pause()
-                  e.currentTarget.currentTime = 0
-                }}
               />
             ) : (
               <img
@@ -111,7 +127,7 @@ export function MemoryCard({ memory, onClick }: MemoryCardProps) {
 
         {/* Video badge indicator */}
         {memory.mediaKind === 'Video' && (
-          <div className="absolute top-2.5 right-2.5 z-20 w-6 h-6 rounded-full bg-black/60 backdrop-blur-xs text-white flex items-center justify-center shadow-xs">
+          <div className="absolute top-2.5 right-2.5 z-20 w-6 h-6 rounded-full bg-black/60 backdrop-blur-xs text-white flex items-center justify-center shadow-xs pointer-events-none">
             <Video className="w-3.5 h-3.5" />
           </div>
         )}
