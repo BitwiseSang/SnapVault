@@ -17,6 +17,7 @@ import {
   ChevronRight,
   X,
 } from 'lucide-react'
+import { createPortal } from 'react-dom'
 import { TimelineEvent } from '../../db/db'
 import { MessageEvent, SnapEvent } from '../../models/events'
 import { useMediaUrl } from '../../db/mediaUrl'
@@ -64,7 +65,7 @@ function ChatMediaLightboxModal({
     }
   }, [onClose, handlePrev, handleNext])
 
-  return (
+  const modalContent = (
     <div
       className="fixed inset-0 z-50 bg-black/85 backdrop-blur-xs flex flex-col items-center justify-between p-4 sm:p-6 animate-in fade-in duration-150"
       onClick={onClose}
@@ -141,6 +142,8 @@ function ChatMediaLightboxModal({
       <div className="h-6" />
     </div>
   )
+
+  return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : modalContent
 }
 
 function ChatMediaTile({

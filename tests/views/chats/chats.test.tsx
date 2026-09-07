@@ -7,6 +7,14 @@ import { ConversationPane } from '../../../src/views/chats/ConversationPane'
 import { ContactSummary } from '../../../src/db/db'
 import { MessageEvent, SnapEvent } from '../../../src/models/events'
 
+vi.mock('../../../src/db/mediaUrl', () => ({
+  useMediaUrl: (path?: string) => ({
+    url: path ? `blob:http://localhost/${path}` : null,
+    isLoading: false,
+  }),
+  getCachedMediaUrl: vi.fn().mockResolvedValue(null),
+}))
+
 describe('MessageBubble', () => {
   it('renders text message correctly when content is present', () => {
     const msg: MessageEvent = {
@@ -152,6 +160,45 @@ describe('MessageBubble', () => {
     render(<MessageBubble event={msg} />)
     expect(screen.getByText('Audio Note')).toBeDefined()
     expect(screen.getByTitle('Play voice note')).toBeDefined()
+  })
+
+  it('opens fullscreen lightbox via portal on media click and closes on close button', () => {
+    const msg: MessageEvent = {
+      id: 'msg_media_lightbox',
+      type: 'message',
+      timestamp: '2026-09-05T12:00:00.000Z',
+      contact: 'sarah',
+      direction: 'received',
+      mediaType: 'MEDIA',
+      content: null,
+      isSaved: false,
+      mediaIds: 'sample_id',
+      chatMediaFiles: ['chat_media/2026-09-05_sample.jpg', 'chat_media/2026-09-05_sample2.jpg'],
+      conversationTitle: null,
+    }
+
+    render(<MessageBubble event={msg} />)
+
+    // Click on media tile to open lightbox
+    const mediaTile = screen.getAllByAltText('Chat attachment')[0]
+    expect(mediaTile).toBeDefined()
+    fireEvent.click(mediaTile!)
+
+    // Modal dialog should be attached to document.body via portal
+    const dialog = screen.getByRole('dialog')
+    expect(dialog).toBeDefined()
+    expect(document.body.contains(dialog)).toBe(true)
+    expect(screen.getByText('1 / 2')).toBeDefined()
+
+    // Next item button
+    const nextBtn = screen.getByTitle('Next (Right arrow)')
+    fireEvent.click(nextBtn)
+    expect(screen.getByText('2 / 2')).toBeDefined()
+
+    // Close button
+    const closeBtn = screen.getByTitle('Close (Esc)')
+    fireEvent.click(closeBtn)
+    expect(screen.queryByRole('dialog')).toBeNull()
   })
 })
 
