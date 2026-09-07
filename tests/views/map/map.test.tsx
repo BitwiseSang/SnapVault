@@ -390,14 +390,17 @@ describe('MapView', () => {
     render(<MapView />)
     expect(await screen.findByText(/3 memories/i)).toBeDefined()
 
-    expect(markerSpy.mock.results.length).toBeGreaterThan(0)
-    const clusterMarker = markerSpy.mock.results
-      .map((r) => r.value as L.Marker)
-      .find((m) => {
-        const pos = m?.getLatLng?.()
-        return pos && Math.abs(pos.lat - 0.556) < 0.01
-      })
-    expect(clusterMarker).toBeDefined()
+    let clusterMarker: L.Marker | undefined
+    await waitFor(() => {
+      expect(markerSpy.mock.results.length).toBeGreaterThan(0)
+      clusterMarker = markerSpy.mock.results
+        .map((r) => r.value as L.Marker)
+        .find((m) => {
+          const pos = m?.getLatLng?.()
+          return pos && Math.abs(pos.lat - 0.556) < 0.01
+        })
+      expect(clusterMarker).toBeDefined()
+    })
 
     // Click cluster marker to open expansion modal
     clusterMarker!.fire('click')
