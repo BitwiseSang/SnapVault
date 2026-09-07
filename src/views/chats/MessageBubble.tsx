@@ -159,11 +159,12 @@ function ChatMediaTile({
   const isVideo = filePath.endsWith('.mp4') || filePath.endsWith('.mov')
 
   const containerClasses = isSingle ? 'w-full h-[280px] sm:h-[320px]' : 'w-full aspect-square'
+  const roundingClass = isSingle ? 'rounded-2xl' : 'rounded-xl'
 
   if (isLoading) {
     return (
       <div
-        className={`${containerClasses} rounded-xl bg-surface-raised border border-border flex items-center justify-center`}
+        className={`${containerClasses} ${roundingClass} bg-surface-raised border border-border flex items-center justify-center`}
       >
         <Spinner size="sm" />
       </div>
@@ -173,7 +174,7 @@ function ChatMediaTile({
   if (!url) {
     return (
       <div
-        className={`${containerClasses} p-3 rounded-xl bg-surface border border-border text-xs text-text-secondary flex items-center justify-center gap-1.5`}
+        className={`${containerClasses} p-3 ${roundingClass} bg-surface border border-border text-xs text-text-secondary flex items-center justify-center gap-1.5`}
       >
         <Camera className="w-4 h-4 opacity-50" />
         {isSingle && <span>Media unavailable</span>}
@@ -184,14 +185,14 @@ function ChatMediaTile({
   if (isVideo && isSingle) {
     return (
       <div
-        className={`${containerClasses} rounded-xl overflow-hidden bg-black flex items-center justify-center`}
+        className={`${containerClasses} ${roundingClass} overflow-hidden bg-black flex items-center justify-center`}
       >
         <video
           src={url}
           controls
           preload="metadata"
           playsInline
-          className="w-full h-full object-contain rounded-xl"
+          className={`w-full h-full object-contain ${roundingClass}`}
         />
       </div>
     )
@@ -200,7 +201,7 @@ function ChatMediaTile({
   return (
     <div
       onClick={onClick}
-      className={`relative ${containerClasses} rounded-xl overflow-hidden bg-surface-raised border border-border/40 cursor-pointer group/tile flex items-center justify-center`}
+      className={`relative ${containerClasses} ${roundingClass} overflow-hidden bg-surface-raised border border-border/40 cursor-pointer group/tile flex items-center justify-center`}
     >
       {isVideo ? (
         <>
@@ -222,10 +223,8 @@ function ChatMediaTile({
             alt="Chat attachment"
             className="w-full h-full object-cover group-hover/tile:scale-102 transition duration-150"
           />
-          <div className="absolute inset-0 bg-black/0 group-hover/tile:bg-black/15 transition flex items-end justify-end p-1.5 opacity-0 group-hover/tile:opacity-100">
-            <div className="bg-black/60 text-white rounded-md p-1 shadow-sm">
-              <Maximize2 className="w-3 h-3" />
-            </div>
+          <div className="absolute top-1.5 right-1.5 bg-black/60 backdrop-blur-xs text-white rounded-md p-1 shadow-xs opacity-0 group-hover/tile:opacity-100 transition">
+            <Maximize2 className="w-3 h-3" />
           </div>
         </>
       )}
@@ -266,12 +265,16 @@ function ChatMediaGrid({
 
 function ChatAudioPlayer({
   filePath,
-  isSent,
-  isSaved,
+  isSent = false,
+  isSaved = false,
+  timestamp,
+  showTimestamp = true,
 }: {
   filePath: string
-  isSent: boolean
-  isSaved: boolean
+  isSent?: boolean
+  isSaved?: boolean
+  timestamp?: string
+  showTimestamp?: boolean
 }) {
   const { url, isLoading } = useMediaUrl(filePath)
   const [isPlaying, setIsPlaying] = useState(false)
@@ -297,20 +300,16 @@ function ChatAudioPlayer({
 
   return (
     <div
-      className={`flex items-center gap-3 p-2.5 rounded-xl border transition min-w-[210px] sm:min-w-[240px] ${
+      className={`flex items-center gap-3 p-3 rounded-2xl border transition shadow-2xs w-[260px] sm:w-[300px] max-w-full ${
         isSent
-          ? 'bg-black/8 border-black/15 text-accent-fg'
+          ? 'bg-surface-raised border-border text-text-primary'
           : 'bg-surface border-border text-text-primary'
       }`}
     >
       <button
         onClick={togglePlay}
         disabled={isLoading || !url}
-        className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 transition cursor-pointer ${
-          isSent
-            ? 'bg-black/12 hover:bg-black/20 text-accent-fg'
-            : 'bg-accent text-accent-fg hover:opacity-90'
-        } disabled:opacity-50`}
+        className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 transition cursor-pointer bg-accent text-accent-fg hover:opacity-90 shadow-2xs disabled:opacity-50"
         title={isPlaying ? 'Pause' : 'Play voice note'}
       >
         {isPlaying ? (
@@ -343,11 +342,7 @@ function ChatAudioPlayer({
         <div className="flex items-center justify-between gap-1">
           <span className="text-xs font-bold">Audio Note</span>
           {isSaved && (
-            <span
-              className={`inline-flex items-center gap-0.5 text-[9px] px-1 py-0.5 rounded font-semibold ${
-                isSent ? 'bg-black/12' : 'bg-accent/15 text-text-primary'
-              }`}
-            >
+            <span className="inline-flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded font-semibold bg-accent/15 text-text-primary border border-accent/25">
               <Bookmark className="w-2 h-2 fill-current" />
               Saved
             </span>
@@ -355,8 +350,8 @@ function ChatAudioPlayer({
         </div>
 
         {/* Waveform / playback scrub indicator */}
-        <div className="flex items-center gap-1.5 mt-1.5">
-          <div className="flex items-center gap-1 flex-1 opacity-75">
+        <div className="flex items-center justify-between gap-1.5 mt-1.5">
+          <div className="flex items-center gap-1 flex-1 opacity-80">
             {[0.4, 0.7, 1.0, 0.5, 0.8, 0.6, 0.9, 0.6, 0.3].map((height, idx) => {
               const progress = duration > 0 ? currentTime / duration : 0
               const barThreshold = (idx + 1) / 9
@@ -365,16 +360,23 @@ function ChatAudioPlayer({
                 <span
                   key={idx}
                   className={`w-0.5 rounded-full transition-all duration-150 ${
-                    isActive ? 'scale-y-125 opacity-100 bg-current' : 'opacity-60 bg-current'
+                    isActive ? 'scale-y-125 opacity-100 bg-accent' : 'opacity-40 bg-text-secondary'
                   }`}
                   style={{ height: `${Math.round(height * 16)}px` }}
                 />
               )
             })}
           </div>
-          <span className="text-[10px] font-mono tabular-nums opacity-80">
-            {formatSec(currentTime > 0 ? currentTime : duration)}
-          </span>
+          <div className="flex items-center gap-1 shrink-0">
+            <span className="text-[10px] font-mono tabular-nums text-text-secondary">
+              {formatSec(currentTime > 0 ? currentTime : duration)}
+            </span>
+            {showTimestamp && timestamp && (
+              <span className="text-[10px] text-text-secondary font-sans opacity-70">
+                • {timestamp}
+              </span>
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -658,6 +660,7 @@ export function MessageBubble({
   showSenderName = false,
   isHighlighted = false,
 }: MessageBubbleProps) {
+  const [activeMediaIndex, setActiveMediaIndex] = useState<number | null>(null)
   const isSent = event.direction === 'sent'
   const isSnap = event.type === 'snap'
 
@@ -669,6 +672,31 @@ export function MessageBubble({
       return ''
     }
   }
+
+  const message = event.type === 'message' ? event : null
+  const hasMediaFiles = Boolean(message?.chatMediaFiles && message.chatMediaFiles.length > 0)
+
+  const isVisualMedia =
+    hasMediaFiles &&
+    (message?.mediaType === 'MEDIA' ||
+      message?.mediaType === 'SHARE' ||
+      message?.mediaType === 'SHARESAVEDSTORY')
+
+  const isAudioNote = hasMediaFiles && message?.mediaType === 'NOTE'
+
+  const hasCaption = Boolean(message?.content && message.content.trim())
+
+  const formattedTime = formatTime(event.timestamp)
+  const isSingleVideo =
+    message?.chatMediaFiles?.length === 1 &&
+    (message.chatMediaFiles[0]!.endsWith('.mp4') ||
+      message.chatMediaFiles[0]!.endsWith('.mov'))
+  const isSharedStory =
+    message?.mediaType === 'SHARE' || message?.mediaType === 'SHARESAVEDSTORY'
+
+  const highlightClasses = isHighlighted
+    ? 'ring-2 ring-accent ring-offset-2 ring-offset-bg shadow-lg animate-pulse'
+    : ''
 
   const renderContent = () => {
     if (isSnap) {
@@ -740,29 +768,174 @@ export function MessageBubble({
         </span>
       )}
 
-      <div
-        className={`max-w-[85%] sm:max-w-[75%] px-3.5 py-2 rounded-2xl relative shadow-2xs transition-all ${
-          isSent
-            ? 'bg-sent text-accent-fg font-medium rounded-br-xs'
-            : 'bg-surface-raised border border-border text-text-primary rounded-bl-xs'
-        } ${isHighlighted ? 'ring-2 ring-accent ring-offset-2 ring-offset-bg shadow-lg animate-pulse' : ''}`}
-      >
-        {renderContent()}
+      {isVisualMedia ? (
+        hasCaption ? (
+          <div className="flex flex-col gap-1.5 w-[280px] sm:w-[340px] max-w-[85vw]">
+            {/* Unwrapped media grid on top */}
+            <div
+              className={`relative rounded-2xl overflow-hidden shadow-2xs w-full ${highlightClasses}`}
+            >
+              <ChatMediaGrid
+                files={message!.chatMediaFiles!}
+                onSelectMedia={(idx) => setActiveMediaIndex(idx)}
+              />
 
-        {/* Footer info: time + saved bookmark */}
+              {isSharedStory && (
+                <span className="text-[10px] text-white font-medium bg-black/60 backdrop-blur-xs px-2 py-0.5 rounded-full absolute top-2 left-2 pointer-events-none z-10">
+                  Shared Story
+                </span>
+              )}
+            </div>
+
+            {/* Wrapped caption bubble below */}
+            <div
+              className={`px-3.5 py-2 rounded-2xl shadow-2xs w-fit max-w-full ${
+                isSent
+                  ? 'bg-sent text-accent-fg font-medium rounded-br-xs self-end'
+                  : 'bg-surface-raised border border-border text-text-primary rounded-bl-xs self-start'
+              }`}
+            >
+              <p className="text-sm break-words whitespace-pre-wrap leading-relaxed">
+                {message!.content}
+              </p>
+
+              {/* Footer info: time + saved bookmark */}
+              <div
+                className={`flex items-center gap-1 justify-end mt-1 text-[10px] ${
+                  isSent ? 'text-accent-fg/70' : 'text-text-secondary'
+                }`}
+              >
+                {message!.isSaved && (
+                  <span title="Saved in chat" className="inline-flex items-center">
+                    <Bookmark className="w-2.5 h-2.5 fill-current shrink-0" />
+                  </span>
+                )}
+                <span>{formattedTime}</span>
+              </div>
+            </div>
+
+            {activeMediaIndex !== null && (
+              <ChatMediaLightboxModal
+                files={message!.chatMediaFiles!}
+                initialIndex={activeMediaIndex}
+                onClose={() => setActiveMediaIndex(null)}
+              />
+            )}
+          </div>
+        ) : (
+          <div
+            className={`relative rounded-2xl overflow-hidden shadow-2xs w-[280px] sm:w-[340px] max-w-[85vw] ${highlightClasses}`}
+          >
+            <ChatMediaGrid
+              files={message!.chatMediaFiles!}
+              onSelectMedia={(idx) => setActiveMediaIndex(idx)}
+            />
+
+            {isSharedStory && (
+              <span className="text-[10px] text-white font-medium bg-black/60 backdrop-blur-xs px-2 py-0.5 rounded-full absolute top-2 left-2 pointer-events-none z-10">
+                Shared Story
+              </span>
+            )}
+
+            {/* Floating timestamp badge */}
+            <div
+              className={`absolute ${
+                isSingleVideo ? 'top-2 right-2' : 'bottom-2 right-2'
+              } px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-xs text-white text-[10px] font-medium flex items-center gap-1 shadow-xs pointer-events-none select-none z-10`}
+            >
+              {message!.isSaved && (
+                <span title="Saved in chat" className="inline-flex items-center">
+                  <Bookmark className="w-2.5 h-2.5 fill-current shrink-0 text-amber-300" />
+                </span>
+              )}
+              <span>{formattedTime}</span>
+            </div>
+
+            {activeMediaIndex !== null && (
+              <ChatMediaLightboxModal
+                files={message!.chatMediaFiles!}
+                initialIndex={activeMediaIndex}
+                onClose={() => setActiveMediaIndex(null)}
+              />
+            )}
+          </div>
+        )
+      ) : isAudioNote ? (
+        hasCaption ? (
+          <div className="flex flex-col gap-1.5 w-[260px] sm:w-[300px] max-w-[85vw]">
+            {/* Unwrapped voice note card on top */}
+            <div className={`w-full rounded-2xl ${highlightClasses}`}>
+              <ChatAudioPlayer
+                filePath={message!.chatMediaFiles![0]!}
+                isSent={isSent}
+                isSaved={false}
+                showTimestamp={false}
+              />
+            </div>
+
+            {/* Wrapped caption bubble below */}
+            <div
+              className={`px-3.5 py-2 rounded-2xl shadow-2xs w-fit max-w-full ${
+                isSent
+                  ? 'bg-sent text-accent-fg font-medium rounded-br-xs self-end'
+                  : 'bg-surface-raised border border-border text-text-primary rounded-bl-xs self-start'
+              }`}
+            >
+              <p className="text-sm break-words whitespace-pre-wrap leading-relaxed">
+                {message!.content}
+              </p>
+
+              <div
+                className={`flex items-center gap-1 justify-end mt-1 text-[10px] ${
+                  isSent ? 'text-accent-fg/70' : 'text-text-secondary'
+                }`}
+              >
+                {message!.isSaved && (
+                  <span title="Saved in chat" className="inline-flex items-center">
+                    <Bookmark className="w-2.5 h-2.5 fill-current shrink-0" />
+                  </span>
+                )}
+                <span>{formattedTime}</span>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className={`w-fit max-w-[85vw] rounded-2xl ${highlightClasses}`}>
+            <ChatAudioPlayer
+              filePath={message!.chatMediaFiles![0]!}
+              isSent={isSent}
+              isSaved={message!.isSaved}
+              timestamp={formattedTime}
+              showTimestamp={true}
+            />
+          </div>
+        )
+      ) : (
+        /* Standard wrapped chat bubble */
         <div
-          className={`flex items-center gap-1 justify-end mt-1 text-[10px] ${
-            isSent ? 'text-accent-fg/70' : 'text-text-secondary'
-          }`}
+          className={`max-w-[85%] sm:max-w-[75%] px-3.5 py-2 rounded-2xl relative shadow-2xs transition-all ${
+            isSent
+              ? 'bg-sent text-accent-fg font-medium rounded-br-xs'
+              : 'bg-surface-raised border border-border text-text-primary rounded-bl-xs'
+          } ${highlightClasses}`}
         >
-          {event.type === 'message' && event.isSaved && (
-            <span title="Saved in chat" className="inline-flex items-center">
-              <Bookmark className="w-2.5 h-2.5 fill-current shrink-0" />
-            </span>
-          )}
-          <span>{formatTime(event.timestamp)}</span>
+          {renderContent()}
+
+          {/* Footer info: time + saved bookmark */}
+          <div
+            className={`flex items-center gap-1 justify-end mt-1 text-[10px] ${
+              isSent ? 'text-accent-fg/70' : 'text-text-secondary'
+            }`}
+          >
+            {event.type === 'message' && event.isSaved && (
+              <span title="Saved in chat" className="inline-flex items-center">
+                <Bookmark className="w-2.5 h-2.5 fill-current shrink-0" />
+              </span>
+            )}
+            <span>{formattedTime}</span>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   )
 }

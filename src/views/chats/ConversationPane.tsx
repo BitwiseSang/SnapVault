@@ -147,10 +147,10 @@ export function ConversationPane({
       }
       if (ev.type === 'message' && ev.chatMediaFiles && ev.chatMediaFiles.length > 0) {
         if (ev.mediaType === 'NOTE') {
-          // Audio note player pill: p-2.5 + 36px play button + time row
-          size += 40
+          // Audio note player pill: p-3 + 40px play button + time row
+          size += 50
         } else if (ev.chatMediaFiles.length === 1) {
-          // Single photo/video: fixed container 320px + bubble padding + footer
+          // Single photo/video: fixed container 320px
           size += 310
         } else if (ev.chatMediaFiles.length === 2) {
           // 2 items side-by-side: 1 square row (~150px-180px)
@@ -158,6 +158,10 @@ export function ConversationPane({
         } else {
           // 3+ items: 2 or more square grid rows (~300px-380px)
           size += 330
+        }
+        if (ev.content && ev.content.trim()) {
+          // Caption bubble rendered underneath media
+          size += 44 + Math.min(100, Math.floor(ev.content.length / 35) * 22)
         }
       } else if (ev.type === 'snap' || (ev.type === 'message' && ev.mediaType !== 'TEXT')) {
         // Fallback cards (ephemeral snap or unexported media attachment card)

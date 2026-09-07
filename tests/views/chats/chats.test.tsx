@@ -200,6 +200,78 @@ describe('MessageBubble', () => {
     fireEvent.click(closeBtn)
     expect(screen.queryByRole('dialog')).toBeNull()
   })
+
+  it('renders unwrapped media without bubble and with floating timestamp when caption is absent', () => {
+    const msg: MessageEvent = {
+      id: 'msg_media_no_cap',
+      type: 'message',
+      timestamp: '2026-09-05T12:34:00.000Z',
+      contact: 'sarah',
+      direction: 'received',
+      mediaType: 'MEDIA',
+      content: null,
+      isSaved: true,
+      mediaIds: 'sample_id',
+      chatMediaFiles: ['chat_media/2026-09-05_sample.jpg'],
+      conversationTitle: null,
+    }
+
+    const { container } = render(<MessageBubble event={msg} />)
+    expect(screen.getByAltText('Chat attachment')).toBeDefined()
+    // Should NOT have standard bubble wrapper class
+    expect(container.querySelector('.bg-surface-raised.px-3\\.5')).toBeNull()
+    // Saved bookmark and floating time badge should exist
+    expect(screen.getByTitle('Saved in chat')).toBeDefined()
+  })
+
+  it('renders unwrapped media with wrapped caption bubble underneath when caption is present', () => {
+    const msg: MessageEvent = {
+      id: 'msg_media_with_cap',
+      type: 'message',
+      timestamp: '2026-09-05T12:34:00.000Z',
+      contact: 'sarah',
+      direction: 'sent',
+      mediaType: 'MEDIA',
+      content: 'Check out this sunset!',
+      isSaved: false,
+      mediaIds: 'sample_id',
+      chatMediaFiles: ['chat_media/2026-09-05_sample.jpg'],
+      conversationTitle: null,
+    }
+
+    render(<MessageBubble event={msg} />)
+    expect(screen.getByAltText('Chat attachment')).toBeDefined()
+    const captionEl = screen.getByText('Check out this sunset!')
+    expect(captionEl).toBeDefined()
+    // Caption element should be inside the sent bubble
+    const captionBubble = captionEl.closest('.bg-sent')
+    expect(captionBubble).not.toBeNull()
+  })
+
+  it('renders voice note with wrapped caption bubble underneath when caption is present', () => {
+    const msg: MessageEvent = {
+      id: 'msg_note_with_cap',
+      type: 'message',
+      timestamp: '2026-09-05T12:34:00.000Z',
+      contact: 'sarah',
+      direction: 'received',
+      mediaType: 'NOTE',
+      content: 'Listen closely',
+      isSaved: true,
+      mediaIds: 'audio_id',
+      chatMediaFiles: ['chat_media/2026-09-05_audio.mp4'],
+      conversationTitle: null,
+    }
+
+    render(<MessageBubble event={msg} />)
+    expect(screen.getByText('Audio Note')).toBeDefined()
+    expect(screen.getByTitle('Play voice note')).toBeDefined()
+    const captionEl = screen.getByText('Listen closely')
+    expect(captionEl).toBeDefined()
+    // Caption is inside received bubble
+    const captionBubble = captionEl.closest('.bg-surface-raised')
+    expect(captionBubble).not.toBeNull()
+  })
 })
 
 describe('compareContacts sorting logic', () => {
