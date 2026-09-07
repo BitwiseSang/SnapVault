@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, type MouseEvent } from 'react'
 import {
   X,
   ChevronLeft,
@@ -41,13 +41,15 @@ export function MediaLightbox({
   const [zoomLevel, setZoomLevel] = useState<0 | 1 | 2>(0)
   const [transformOrigin, setTransformOrigin] = useState<string>('50% 50%')
 
-  const isImage = memory?.mediaKind === 'Image'
-
-  // Reset zoom whenever active memory changes
-  useEffect(() => {
+  // Reset zoom during render whenever active memory changes (avoids cascading render warning)
+  const [prevMemoryId, setPrevMemoryId] = useState(memory?.id)
+  if (memory?.id !== prevMemoryId) {
+    setPrevMemoryId(memory?.id)
     setZoomLevel(0)
     setTransformOrigin('50% 50%')
-  }, [memory?.id])
+  }
+
+  const isImage = memory?.mediaKind === 'Image'
 
   const cycleZoom = useCallback(
     (clientX?: number, clientY?: number, targetRect?: DOMRect) => {
@@ -73,7 +75,7 @@ export function MediaLightbox({
     [isImage],
   )
 
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+  const handleMouseMove = (e: MouseEvent<HTMLDivElement>) => {
     if (zoomLevel === 0 || !isImage) return
     const rect = e.currentTarget.getBoundingClientRect()
     const x = Math.max(0, Math.min(100, ((e.clientX - rect.left) / rect.width) * 100))
@@ -81,7 +83,7 @@ export function MediaLightbox({
     setTransformOrigin(`${x.toFixed(1)}% ${y.toFixed(1)}%`)
   }
 
-  const handleImageClick = (e: React.MouseEvent<HTMLDivElement>) => {
+  const handleImageClick = (e: MouseEvent<HTMLDivElement>) => {
     e.stopPropagation()
     if (!isImage) return
     cycleZoom(e.clientX, e.clientY, e.currentTarget.getBoundingClientRect())
@@ -145,7 +147,7 @@ export function MediaLightbox({
     >
       {/* Top action bar */}
       <div
-        className="absolute top-0 inset-x-0 p-4 flex items-center justify-between text-white z-50"
+        className="absolute top-0 inset-x-0 p-4 flex items-center justify-between text-white z-50 pointer-events-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-3">
@@ -162,9 +164,40 @@ export function MediaLightbox({
           </span>
         </div>
 
-        <IconButton label="Close (Esc)" onClick={onClose} className="text-white hover:bg-white/10">
-          <X className="w-5 h-5" />
-        </IconButton>
+        {/* Header actions: Magnification zoom button + Close button */}
+        <div className="flex items-center gap-2">
+          {isImage && mainUrl && (
+            <button
+              type="button"
+              onClick={() => cycleZoom()}
+              aria-label={`Zoom level ${ZOOM_LABELS[zoomLevel]}. Click to zoom.`}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold backdrop-blur-xs border transition cursor-pointer select-none ${
+                zoomLevel > 0
+                  ? 'bg-accent text-accent-fg border-accent font-bold shadow-xs'
+                  : 'bg-white/10 hover:bg-white/20 text-white border-white/15'
+              }`}
+            >
+              {zoomLevel === 2 ? (
+                <ZoomOut
+                  className={`w-3.5 h-3.5 ${zoomLevel > 0 ? 'text-accent-fg' : 'text-accent'}`}
+                />
+              ) : (
+                <ZoomIn
+                  className={`w-3.5 h-3.5 ${zoomLevel > 0 ? 'text-accent-fg' : 'text-accent'}`}
+                />
+              )}
+              <span>{ZOOM_LABELS[zoomLevel]}</span>
+            </button>
+          )}
+
+          <IconButton
+            label="Close (Esc)"
+            onClick={onClose}
+            className="text-white hover:bg-white/10"
+          >
+            <X className="w-5 h-5" />
+          </IconButton>
+        </div>
       </div>
 
       {/* Navigation chevrons */}
@@ -196,7 +229,7 @@ export function MediaLightbox({
 
       {/* Main media display */}
       <div
-        className={`relative max-h-[82vh] max-w-[90vw] flex items-center justify-center overflow-hidden rounded-2xl shadow-2xl group ${
+        className={`relative max-h-[82vh] max-w-[90vw] flex items-center justify-center overflow-hidden rounded-2xl shadow-2xl group select-none ${
           isImage ? (zoomLevel === 2 ? 'cursor-zoom-out' : 'cursor-zoom-in') : ''
         }`}
         onClick={handleImageClick}
@@ -205,28 +238,6 @@ export function MediaLightbox({
         {isLoading && (
           <div className="w-64 h-96 flex items-center justify-center">
             <Spinner size="lg" />
-          </div>
-        )}
-
-        {/* Floating zoom tool badge: visible on hover */}
-        {isImage && mainUrl && (
-          <div className="absolute top-3.5 right-3.5 z-30 opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-auto">
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation()
-                cycleZoom()
-              }}
-              aria-label={`Zoom level ${ZOOM_LABELS[zoomLevel]}. Click to zoom.`}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/75 hover:bg-black/90 text-white text-xs font-semibold backdrop-blur-md border border-white/20 shadow-lg cursor-pointer transition select-none"
-            >
-              {zoomLevel === 2 ? (
-                <ZoomOut className="w-3.5 h-3.5 text-accent" />
-              ) : (
-                <ZoomIn className="w-3.5 h-3.5 text-accent" />
-              )}
-              <span>{ZOOM_LABELS[zoomLevel]}</span>
-            </button>
           </div>
         )}
 

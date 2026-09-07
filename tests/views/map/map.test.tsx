@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { MapMemoryCard } from '../../../src/views/map/MapMemoryCard'
 import { ClusterExpansionCard } from '../../../src/views/map/ClusterExpansionCard'
 import { MapHoverPreview } from '../../../src/views/map/MapHoverPreview'
@@ -279,7 +279,7 @@ describe('MapView', () => {
 
     render(<MapView />)
     expect(await screen.findByText(/1 memory/i)).toBeDefined()
-    expect(divIconSpy.mock.calls.length).toBeGreaterThan(0)
+    await waitFor(() => expect(divIconSpy.mock.calls.length).toBeGreaterThan(0))
 
     for (const call of divIconSpy.mock.calls) {
       const html = call[0]?.html || ''

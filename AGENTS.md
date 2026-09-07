@@ -47,6 +47,18 @@ If sample data is present in `sample_data/`, use it for cross-checking only — 
 
 This also applies to any other directory that looks like a Snapchat export (containing `json/chat_history.json`, `memories/`, etc.) — treat such directories as private data and keep them out of version control.
 
+## CI and Pre-Commit Verification — critical
+
+Before creating any commit, you **MUST** run all CI checks defined in `.github/workflows/ci.yml` locally and ensure they all exit with code 0:
+
+1. `pnpm format:check` — Prettier formatting check
+2. `pnpm lint` — ESLint rules and React hooks verification
+3. `pnpm typecheck` — Strict TypeScript compilation (`tsc -b`)
+4. `pnpm test:run` — Vitest unit and component test suite
+5. `pnpm build` — Vite production bundle compilation
+
+Do not commit code if any of these checks fail or produce errors.
+
 ## Git commit conventions — critical
 
 - All commits must strictly follow the **Conventional Commits** specification (e.g. `feat(...)`, `fix(...)`, `refactor(...)`, `docs(...)`, `chore(...)`, `test(...)`, `ci(...)`).

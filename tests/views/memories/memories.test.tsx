@@ -169,7 +169,7 @@ describe('MediaLightbox', () => {
     expect(container.querySelector('.group.cursor-zoom-in')).not.toBeNull()
   })
 
-  it('cycles zoom levels when clicking the floating zoom button directly', () => {
+  it('cycles zoom levels when clicking the header zoom button directly', () => {
     const memory: MemoryEvent = {
       id: 'mem_zoom_btn',
       type: 'memory',
