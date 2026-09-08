@@ -1,6 +1,6 @@
 import { ChangeEvent, DragEvent, useEffect, useState, useRef } from 'react'
 import { FolderUp, ShieldCheck, AlertCircle, Sparkles, FolderArchive } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import {
   createIngestFromDataTransfer,
   createIngestFromDirectoryHandle,
@@ -17,6 +17,7 @@ export function ImportScreen() {
   const [error, setError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const navigate = useNavigate()
+  const location = useLocation()
   const { refreshData } = useApp()
 
   useEffect(() => {
@@ -29,7 +30,9 @@ export function ImportScreen() {
       const source = await (sourcePromise as Promise<import('../../models/ingest').IngestSource>)
       await runImport(source, (p) => setProgress(p))
       await refreshData()
-      navigate('/chats')
+      const from = (location.state as { from?: { pathname?: string; search?: string } })?.from
+      const target = from ? `${from.pathname || '/chats'}${from.search || ''}` : '/chats'
+      navigate(target, { replace: true })
     } catch (err) {
       if ((err as Error).name !== 'AbortError') {
         setError((err as Error).message || 'Failed to import folder')

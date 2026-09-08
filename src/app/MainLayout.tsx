@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { NavLink, Outlet, useNavigate, useLocation } from 'react-router-dom'
+import { NavLink, Outlet, useNavigate, useLocation, Navigate } from 'react-router-dom'
 import {
   MessageSquare,
   Image as ImageIcon,
@@ -14,9 +14,10 @@ import {
 import { useApp } from './AppContext'
 import { IconButton } from '../components/IconButton'
 import { SearchOverlay } from '../views/search/SearchOverlay'
+import { Spinner } from '../components/Spinner'
 
 export function MainLayout() {
-  const { theme, toggleTheme, meta, setIsSearchOpen } = useApp()
+  const { theme, toggleTheme, meta, setIsSearchOpen, isReady, isLoadingMeta } = useApp()
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -37,6 +38,21 @@ export function MainLayout() {
       document.title = 'SnapVault — Offline Snapchat Archive Explorer'
     }
   }, [location.pathname])
+
+  // Guard: if metadata is still loading, display checking archive spinner
+  if (isLoadingMeta) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-bg text-text-primary gap-4">
+        <Spinner size="lg" />
+        <span className="text-xs text-text-secondary font-medium">Checking local archive...</span>
+      </div>
+    )
+  }
+
+  // Guard: if no archive has been imported yet, redirect to import screen
+  if (!isReady) {
+    return <Navigate to="/import" state={{ from: location }} replace />
+  }
 
   const navItems = [
     {
