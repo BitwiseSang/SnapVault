@@ -9,6 +9,7 @@ import {
   MessageSquare,
   Sparkles,
   ArrowLeft,
+  Download,
 } from 'lucide-react'
 import { ContactSummary, TimelineEvent } from '../../db/db'
 import { Avatar } from '../../components/Avatar'
@@ -16,6 +17,7 @@ import { Badge } from '../../components/Badge'
 import { IconButton } from '../../components/IconButton'
 import { MessageBubble } from './MessageBubble'
 import { EmptyState } from '../../components/EmptyState'
+import { exportConversationAsJson } from '../../utils/export'
 
 interface ConversationPaneProps {
   contact: string | null
@@ -311,6 +313,19 @@ export function ConversationPane({
 
         {/* Controls */}
         <div className="flex items-center gap-2">
+          <IconButton
+            label="Download chat as JSON"
+            onClick={() => {
+              if (contact && events.length > 0) {
+                exportConversationAsJson(contact, summary, events)
+              }
+            }}
+            disabled={isLoading || events.length === 0}
+            size="sm"
+          >
+            <Download className="w-4 h-4" />
+          </IconButton>
+
           <IconButton
             label={`Sorting: ${sortOrder === 'oldest_first' ? 'Oldest first (chat style)' : 'Newest first'}`}
             onClick={toggleSort}

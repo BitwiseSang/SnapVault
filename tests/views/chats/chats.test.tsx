@@ -6,6 +6,11 @@ import { compareContacts, ContactList } from '../../../src/views/chats/ContactLi
 import { ConversationPane } from '../../../src/views/chats/ConversationPane'
 import { ContactSummary } from '../../../src/db/db'
 import { MessageEvent, SnapEvent } from '../../../src/models/events'
+import { exportConversationAsJson } from '../../../src/utils/export'
+
+vi.mock('../../../src/utils/export', () => ({
+  exportConversationAsJson: vi.fn(),
+}))
 
 vi.mock('../../../src/db/mediaUrl', () => ({
   useMediaUrl: (path?: string) => ({
@@ -593,5 +598,41 @@ describe('ConversationPane component', () => {
     // Verify there are no "Loading earlier messages..." buttons since all events are fully virtualized
     expect(screen.queryByText('Loading earlier messages...')).toBeNull()
     expect(screen.queryByText('Loading older messages...')).toBeNull()
+  })
+
+  it('renders download chat button and triggers export on click', () => {
+    render(
+      <MemoryRouter initialEntries={['/chats/alice']}>
+        <Routes>
+          <Route
+            path="/chats/:contact"
+            element={<ConversationPane contact="alice" events={mockEvents} isLoading={false} />}
+          />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    const downloadBtn = screen.getByLabelText('Download chat as JSON')
+    expect(downloadBtn).toBeDefined()
+    expect(downloadBtn.hasAttribute('disabled')).toBe(false)
+
+    fireEvent.click(downloadBtn)
+    expect(exportConversationAsJson).toHaveBeenCalledWith('alice', undefined, mockEvents)
+  })
+
+  it('disables download button when events list is empty', () => {
+    render(
+      <MemoryRouter initialEntries={['/chats/alice']}>
+        <Routes>
+          <Route
+            path="/chats/:contact"
+            element={<ConversationPane contact="alice" events={[]} isLoading={false} />}
+          />
+        </Routes>
+      </MemoryRouter>,
+    )
+
+    const downloadBtn = screen.getByLabelText('Download chat as JSON')
+    expect(downloadBtn.hasAttribute('disabled')).toBe(true)
   })
 })
