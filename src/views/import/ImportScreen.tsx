@@ -1,4 +1,4 @@
-import { ChangeEvent, DragEvent, useEffect, useState } from 'react'
+import { ChangeEvent, DragEvent, useEffect, useState, useRef } from 'react'
 import { FolderUp, ShieldCheck, AlertCircle, Sparkles, FolderArchive } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import {
@@ -15,6 +15,7 @@ export function ImportScreen() {
   const [isDragging, setIsDragging] = useState(false)
   const [progress, setProgress] = useState<ImportProgress | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const navigate = useNavigate()
   const { refreshData } = useApp()
 
@@ -63,16 +64,16 @@ export function ImportScreen() {
       try {
         const handle = await window.showDirectoryPicker()
         await processIngest(createIngestFromDirectoryHandle(handle))
+        return
       } catch (err) {
-        if ((err as Error).name !== 'AbortError') {
-          setError((err as Error).message)
+        if ((err as Error).name === 'AbortError') {
+          return
         }
+        // Fallback to file input if Directory Picker fails due to security or context limitations
       }
-    } else {
-      setError(
-        'Directory Picker API is not supported in this browser. Please use the Browse Folder button.',
-      )
     }
+    // Universal fallback for Firefox, Safari, and browsers without Directory Picker API
+    fileInputRef.current?.click()
   }
 
   const handleFileInput = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -144,26 +145,21 @@ export function ImportScreen() {
                 </p>
               </div>
 
-              <div className="flex flex-col sm:flex-row items-center gap-3 pt-2 w-full max-w-xs">
+              <div className="pt-2 w-full max-w-xs">
                 <Button onClick={handlePickDirectory} className="w-full" variant="primary">
                   <FolderUp className="w-4 h-4" />
                   Select Folder
                 </Button>
-
-                <label className="w-full">
-                  <span className="w-full inline-flex items-center justify-center font-medium rounded-xl transition-all select-none cursor-pointer border border-border bg-surface-raised hover:bg-border text-text-primary text-sm px-4 py-2 gap-2">
-                    Browse Folder
-                  </span>
-                  <input
-                    type="file"
-                    // @ts-expect-error webkitdirectory is standard for folder inputs
-                    webkitdirectory=""
-                    directory=""
-                    multiple
-                    className="hidden"
-                    onChange={handleFileInput}
-                  />
-                </label>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  // @ts-expect-error webkitdirectory is standard for folder inputs
+                  webkitdirectory=""
+                  directory=""
+                  multiple
+                  className="hidden"
+                  onChange={handleFileInput}
+                />
               </div>
             </>
           )}
