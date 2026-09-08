@@ -689,10 +689,8 @@ export function MessageBubble({
   const formattedTime = formatTime(event.timestamp)
   const isSingleVideo =
     message?.chatMediaFiles?.length === 1 &&
-    (message.chatMediaFiles[0]!.endsWith('.mp4') ||
-      message.chatMediaFiles[0]!.endsWith('.mov'))
-  const isSharedStory =
-    message?.mediaType === 'SHARE' || message?.mediaType === 'SHARESAVEDSTORY'
+    (message.chatMediaFiles[0]!.endsWith('.mp4') || message.chatMediaFiles[0]!.endsWith('.mov'))
+  const isSharedStory = message?.mediaType === 'SHARE' || message?.mediaType === 'SHARESAVEDSTORY'
 
   const highlightClasses = isHighlighted
     ? 'ring-2 ring-accent ring-offset-2 ring-offset-bg shadow-lg animate-pulse'
