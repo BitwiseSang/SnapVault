@@ -6,10 +6,16 @@ import { compareContacts, ContactList } from '../../../src/views/chats/ContactLi
 import { ConversationPane } from '../../../src/views/chats/ConversationPane'
 import { ContactSummary } from '../../../src/db/db'
 import { MessageEvent, SnapEvent } from '../../../src/models/events'
-import { exportConversationAsJson } from '../../../src/utils/export'
+import {
+  exportConversationAsJson,
+  exportConversationAsMarkdown,
+  exportConversationAsPdf,
+} from '../../../src/utils/export'
 
 vi.mock('../../../src/utils/export', () => ({
   exportConversationAsJson: vi.fn(),
+  exportConversationAsMarkdown: vi.fn(),
+  exportConversationAsPdf: vi.fn(),
 }))
 
 vi.mock('../../../src/db/mediaUrl', () => ({
@@ -600,7 +606,7 @@ describe('ConversationPane component', () => {
     expect(screen.queryByText('Loading older messages...')).toBeNull()
   })
 
-  it('renders download chat button and triggers export on click', () => {
+  it('renders export conversation menu and triggers exports on click', () => {
     render(
       <MemoryRouter initialEntries={['/chats/alice']}>
         <Routes>
@@ -612,15 +618,33 @@ describe('ConversationPane component', () => {
       </MemoryRouter>,
     )
 
-    const downloadBtn = screen.getByLabelText('Download chat as JSON')
-    expect(downloadBtn).toBeDefined()
-    expect(downloadBtn.hasAttribute('disabled')).toBe(false)
+    const exportBtn = screen.getByLabelText('Export conversation')
+    expect(exportBtn).toBeDefined()
+    expect(exportBtn.hasAttribute('disabled')).toBe(false)
 
-    fireEvent.click(downloadBtn)
+    // Click to open menu
+    fireEvent.click(exportBtn)
+    expect(screen.getByRole('menu')).toBeDefined()
+
+    // Test Markdown option
+    const mdOption = screen.getByText(/Markdown for AI/i)
+    fireEvent.click(mdOption)
+    expect(exportConversationAsMarkdown).toHaveBeenCalledWith('alice', undefined, mockEvents)
+
+    // Re-open and test PDF option
+    fireEvent.click(exportBtn)
+    const pdfOption = screen.getByText(/Print \/ Save as PDF/i)
+    fireEvent.click(pdfOption)
+    expect(exportConversationAsPdf).toHaveBeenCalledWith('alice', undefined, mockEvents)
+
+    // Re-open and test JSON option
+    fireEvent.click(exportBtn)
+    const jsonOption = screen.getByText(/Raw JSON/i)
+    fireEvent.click(jsonOption)
     expect(exportConversationAsJson).toHaveBeenCalledWith('alice', undefined, mockEvents)
   })
 
-  it('disables download button when events list is empty', () => {
+  it('disables export button when events list is empty', () => {
     render(
       <MemoryRouter initialEntries={['/chats/alice']}>
         <Routes>
@@ -632,7 +656,7 @@ describe('ConversationPane component', () => {
       </MemoryRouter>,
     )
 
-    const downloadBtn = screen.getByLabelText('Download chat as JSON')
-    expect(downloadBtn.hasAttribute('disabled')).toBe(true)
+    const exportBtn = screen.getByLabelText('Export conversation')
+    expect(exportBtn.hasAttribute('disabled')).toBe(true)
   })
 })

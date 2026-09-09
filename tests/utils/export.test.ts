@@ -3,6 +3,10 @@ import {
   sanitizeFilename,
   formatChatExport,
   exportConversationAsJson,
+  formatChatAsMarkdown,
+  exportConversationAsMarkdown,
+  generatePrintableHtml,
+  exportConversationAsPdf,
 } from '../../src/utils/export'
 import { ContactSummary, TimelineEvent } from '../../src/db/db'
 import { MessageEvent, SnapEvent } from '../../src/models/events'
@@ -145,6 +149,212 @@ describe('export utils', () => {
       expect(createObjectURLSpy).toHaveBeenCalledOnce()
       expect(clickSpy).toHaveBeenCalledOnce()
       expect(revokeObjectURLSpy).toHaveBeenCalledWith('blob:http://localhost/mock-url')
+    })
+  })
+
+  describe('formatChatAsMarkdown', () => {
+    const summary: ContactSummary = {
+      contact: 'bob',
+      displayName: 'Bob Smith',
+      isGroup: false,
+      totalMessages: 3,
+      totalTexts: 1,
+      totalMedia: 1,
+      totalSnaps: 1,
+      totalSaved: 0,
+      lastActivity: '2026-09-05T12:02:00.000Z',
+    }
+
+    const events: TimelineEvent[] = [
+      {
+        id: 'msg_2',
+        type: 'message',
+        timestamp: '2026-09-05T12:01:00.000Z',
+        contact: 'bob',
+        direction: 'sent',
+        mediaType: 'TEXT',
+        content: 'I am doing great!',
+        isSaved: false,
+        mediaIds: '',
+        conversationTitle: null,
+      } as MessageEvent,
+      {
+        id: 'msg_1',
+        type: 'message',
+        timestamp: '2026-09-05T12:00:00.000Z',
+        contact: 'bob',
+        direction: 'received',
+        mediaType: 'TEXT',
+        content: 'How are you?',
+        isSaved: false,
+        mediaIds: '',
+        conversationTitle: null,
+      } as MessageEvent,
+      {
+        id: 'msg_3',
+        type: 'message',
+        timestamp: '2026-09-05T12:02:00.000Z',
+        contact: 'bob',
+        direction: 'received',
+        mediaType: 'NOTE',
+        content: null,
+        isSaved: false,
+        mediaIds: '',
+        conversationTitle: null,
+      } as MessageEvent,
+      {
+        id: 'snap_1',
+        type: 'snap',
+        timestamp: '2026-09-05T12:03:00.000Z',
+        contact: 'bob',
+        direction: 'sent',
+        mediaType: 'IMAGE',
+        conversationTitle: null,
+      } as SnapEvent,
+    ]
+
+    it('formats clean markdown transcript with header and chronological dialogue', () => {
+      const md = formatChatAsMarkdown('bob', summary, events)
+
+      expect(md).toContain('# Chat History: Bob Smith (@bob)')
+      expect(md).toContain('- **Date Range**: 2026-09-05')
+      expect(md).toContain('- **Total Messages**: 4 (2 sent, 2 received)')
+
+      // Order should be chronological: msg_1, msg_2, msg_3, snap_1
+      const lines = md.split('\n').filter((l) => l.startsWith('['))
+      expect(lines).toHaveLength(4)
+      expect(lines[0]).toContain('Bob Smith: How are you?')
+      expect(lines[1]).toContain('Me: I am doing great!')
+      expect(lines[2]).toContain('Bob Smith: [Voice Note]')
+      expect(lines[3]).toContain('Me: [Snap: IMAGE]')
+    })
+
+    it('handles empty events in markdown output', () => {
+      const md = formatChatAsMarkdown('nobody', undefined, [])
+      expect(md).toContain('# Chat History: nobody')
+      expect(md).toContain('*No messages recorded in this conversation.*')
+    })
+  })
+
+  describe('exportConversationAsMarkdown', () => {
+    let createObjectURLSpy: ReturnType<typeof vi.spyOn>
+    let revokeObjectURLSpy: ReturnType<typeof vi.spyOn>
+    let clickSpy: ReturnType<typeof vi.spyOn>
+
+    beforeEach(() => {
+      createObjectURLSpy = vi
+        .spyOn(URL, 'createObjectURL')
+        .mockReturnValue('blob:http://localhost/mock-md-url')
+      revokeObjectURLSpy = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {})
+      clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    })
+
+    afterEach(() => {
+      vi.restoreAllMocks()
+    })
+
+    it('downloads .md file with blob and triggers download', () => {
+      const events: TimelineEvent[] = [
+        {
+          id: 'msg_1',
+          type: 'message',
+          timestamp: '2026-09-05T12:00:00.000Z',
+          contact: 'alice',
+          direction: 'received',
+          mediaType: 'TEXT',
+          content: 'Hello AI!',
+          isSaved: false,
+          mediaIds: '',
+          conversationTitle: null,
+        } as MessageEvent,
+      ]
+
+      exportConversationAsMarkdown('alice', undefined, events)
+
+      expect(createObjectURLSpy).toHaveBeenCalledOnce()
+      expect(clickSpy).toHaveBeenCalledOnce()
+      expect(revokeObjectURLSpy).toHaveBeenCalledWith('blob:http://localhost/mock-md-url')
+    })
+  })
+
+  describe('generatePrintableHtml', () => {
+    it('generates valid HTML document with print CSS and escaped content', () => {
+      const events: TimelineEvent[] = [
+        {
+          id: 'msg_1',
+          type: 'message',
+          timestamp: '2026-09-05T12:00:00.000Z',
+          contact: 'attacker',
+          direction: 'received',
+          mediaType: 'TEXT',
+          content: '<script>alert("xss")</script>',
+          isSaved: true,
+          mediaIds: '',
+          conversationTitle: null,
+        } as MessageEvent,
+        {
+          id: 'msg_2',
+          type: 'message',
+          timestamp: '2026-09-06T14:00:00.000Z',
+          contact: 'attacker',
+          direction: 'sent',
+          mediaType: 'MEDIA',
+          content: 'Check image',
+          isSaved: false,
+          mediaIds: 'img1',
+          chatMediaFiles: ['photo.jpg'],
+          conversationTitle: null,
+        } as MessageEvent,
+      ]
+
+      const html = generatePrintableHtml('attacker', undefined, events)
+
+      expect(html).toContain('<!DOCTYPE html>')
+      expect(html).toContain('@media print')
+      expect(html).toContain('break-inside: avoid')
+      // HTML escaping check
+      expect(html).not.toContain('<script>alert("xss")</script>')
+      expect(html).toContain('&lt;script&gt;alert(&quot;xss&quot;)&lt;/script&gt;')
+      expect(html).toContain('Saved')
+      expect(html).toContain('Attachment: MEDIA')
+      expect(html).toContain('date-separator')
+    })
+
+    it('generates clean empty state message when events list is empty', () => {
+      const html = generatePrintableHtml('empty_user', undefined, [])
+      expect(html).toContain('No messages recorded in this conversation.')
+    })
+  })
+
+  describe('exportConversationAsPdf', () => {
+    it('appends an iframe, writes html, and calls print', () => {
+      vi.useFakeTimers()
+
+      const events: TimelineEvent[] = [
+        {
+          id: 'msg_1',
+          type: 'message',
+          timestamp: '2026-09-05T12:00:00.000Z',
+          contact: 'alice',
+          direction: 'sent',
+          mediaType: 'TEXT',
+          content: 'Hello PDF!',
+          isSaved: false,
+          mediaIds: '',
+          conversationTitle: null,
+        } as MessageEvent,
+      ]
+
+      exportConversationAsPdf('alice', undefined, events)
+
+      // An iframe should have been appended to document.body
+      const iframe = document.querySelector('iframe[title="Print Transcript"]') as HTMLIFrameElement
+      expect(iframe).toBeDefined()
+
+      vi.advanceTimersByTime(300)
+      vi.advanceTimersByTime(1100)
+
+      vi.useRealTimers()
     })
   })
 })

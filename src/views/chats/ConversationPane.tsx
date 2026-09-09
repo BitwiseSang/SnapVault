@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useVirtualizer } from '@tanstack/react-virtual'
 import { useSearchParams } from 'react-router-dom'
 import {
@@ -10,6 +10,9 @@ import {
   Sparkles,
   ArrowLeft,
   Download,
+  Printer,
+  Code,
+  FileText,
 } from 'lucide-react'
 import { ContactSummary, TimelineEvent } from '../../db/db'
 import { Avatar } from '../../components/Avatar'
@@ -17,7 +20,11 @@ import { Badge } from '../../components/Badge'
 import { IconButton } from '../../components/IconButton'
 import { MessageBubble } from './MessageBubble'
 import { EmptyState } from '../../components/EmptyState'
-import { exportConversationAsJson } from '../../utils/export'
+import {
+  exportConversationAsJson,
+  exportConversationAsMarkdown,
+  exportConversationAsPdf,
+} from '../../utils/export'
 
 interface ConversationPaneProps {
   contact: string | null
@@ -61,6 +68,32 @@ export function ConversationPane({
 }: ConversationPaneProps) {
   const [searchParams, setSearchParams] = useSearchParams()
   const parentRef = useRef<HTMLDivElement>(null)
+  const exportMenuRef = useRef<HTMLDivElement>(null)
+  const [isExportMenuOpen, setIsExportMenuOpen] = useState(false)
+
+  // Close export menu when clicking outside or pressing Escape
+  useEffect(() => {
+    if (!isExportMenuOpen) return
+
+    const handleClickOutside = (event: MouseEvent) => {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(event.target as Node)) {
+        setIsExportMenuOpen(false)
+      }
+    }
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsExportMenuOpen(false)
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside)
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside)
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [isExportMenuOpen])
 
   const rawFilter = searchParams.get('filter')
   const filter: FilterCategory =
@@ -313,18 +346,93 @@ export function ConversationPane({
 
         {/* Controls */}
         <div className="flex items-center gap-2">
-          <IconButton
-            label="Download chat as JSON"
-            onClick={() => {
-              if (contact && events.length > 0) {
-                exportConversationAsJson(contact, summary, events)
-              }
-            }}
-            disabled={isLoading || events.length === 0}
-            size="sm"
-          >
-            <Download className="w-4 h-4" />
-          </IconButton>
+          <div className="relative" ref={exportMenuRef}>
+            <IconButton
+              label="Export conversation"
+              onClick={() => setIsExportMenuOpen((prev) => !prev)}
+              disabled={isLoading || events.length === 0}
+              size="sm"
+              aria-haspopup="menu"
+              aria-expanded={isExportMenuOpen}
+            >
+              <Download className="w-4 h-4" />
+            </IconButton>
+
+            {isExportMenuOpen && (
+              <div
+                role="menu"
+                aria-label="Export options"
+                className="absolute right-0 top-full mt-1.5 w-64 bg-surface border border-border rounded-xl shadow-xl p-1.5 z-50 animate-in fade-in zoom-in-95 duration-100"
+              >
+                <div className="px-2.5 py-1 text-[11px] font-semibold text-text-secondary uppercase tracking-wider">
+                  Export Chat
+                </div>
+
+                <button
+                  role="menuitem"
+                  onClick={() => {
+                    setIsExportMenuOpen(false)
+                    if (contact && events.length > 0) {
+                      exportConversationAsMarkdown(contact, summary, events)
+                    }
+                  }}
+                  className="w-full flex items-start gap-2.5 px-2.5 py-2 text-left rounded-lg hover:bg-surface-raised transition cursor-pointer group text-text-primary"
+                >
+                  <FileText className="w-4 h-4 text-accent mt-0.5 shrink-0" />
+                  <div>
+                    <div className="text-xs font-semibold text-text-primary group-hover:text-accent transition">
+                      Markdown for AI (.md)
+                    </div>
+                    <div className="text-[11px] text-text-secondary leading-tight mt-0.5">
+                      Clean transcript optimized for ChatGPT, Claude &amp; LLMs
+                    </div>
+                  </div>
+                </button>
+
+                <button
+                  role="menuitem"
+                  onClick={() => {
+                    setIsExportMenuOpen(false)
+                    if (contact && events.length > 0) {
+                      exportConversationAsPdf(contact, summary, events)
+                    }
+                  }}
+                  className="w-full flex items-start gap-2.5 px-2.5 py-2 text-left rounded-lg hover:bg-surface-raised transition cursor-pointer group text-text-primary"
+                >
+                  <Printer className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" />
+                  <div>
+                    <div className="text-xs font-semibold text-text-primary group-hover:text-emerald-500 transition">
+                      Print / Save as PDF (.pdf)
+                    </div>
+                    <div className="text-[11px] text-text-secondary leading-tight mt-0.5">
+                      Accessible formatted document ready to print or save
+                    </div>
+                  </div>
+                </button>
+
+                <button
+                  role="menuitem"
+                  onClick={() => {
+                    setIsExportMenuOpen(false)
+                    if (contact && events.length > 0) {
+                      exportConversationAsJson(contact, summary, events)
+                    }
+                  }}
+                  className="w-full flex items-start gap-2.5 px-2.5 py-2 text-left rounded-lg hover:bg-surface-raised transition cursor-pointer group text-text-primary"
+                >
+                  <Code className="w-4 h-4 text-text-secondary group-hover:text-text-primary mt-0.5 shrink-0" />
+                  <div>
+                    <div className="text-xs font-semibold text-text-primary transition">
+                      Raw JSON (.json)
+                    </div>
+                    <div className="text-[11px] text-text-secondary leading-tight mt-0.5">
+                      Original structured data backup
+                    </div>
+                  </div>
+                </button>
+              </div>
+            )}
+          </div>
 
           <IconButton
             label={`Sorting: ${sortOrder === 'oldest_first' ? 'Oldest first (chat style)' : 'Newest first'}`}
