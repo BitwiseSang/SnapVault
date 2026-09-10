@@ -169,8 +169,9 @@ describe('MessageBubble', () => {
     }
 
     render(<MessageBubble event={msg} />)
-    expect(screen.getByText('Audio Note')).toBeDefined()
+    expect(screen.queryByText('Audio Note')).toBeNull()
     expect(screen.getByTitle('Play voice note')).toBeDefined()
+    expect(screen.getByText('Saved')).toBeDefined()
   })
 
   it('opens fullscreen lightbox via portal on media click and closes on close button', () => {
@@ -275,13 +276,53 @@ describe('MessageBubble', () => {
     }
 
     render(<MessageBubble event={msg} />)
-    expect(screen.getByText('Audio Note')).toBeDefined()
+    expect(screen.queryByText('Audio Note')).toBeNull()
     expect(screen.getByTitle('Play voice note')).toBeDefined()
     const captionEl = screen.getByText('Listen closely')
     expect(captionEl).toBeDefined()
     // Caption is inside received bubble
     const captionBubble = captionEl.closest('.bg-surface-raised')
     expect(captionBubble).not.toBeNull()
+  })
+
+  it('omits redundant caption when content is literally "Voice note"', () => {
+    const msg: MessageEvent = {
+      id: 'msg_redundant_note',
+      type: 'message',
+      timestamp: '2026-09-05T12:34:00.000Z',
+      contact: 'sarah',
+      direction: 'received',
+      mediaType: 'NOTE',
+      content: 'Voice note',
+      isSaved: false,
+      mediaIds: 'audio_id',
+      chatMediaFiles: ['chat_media/2026-09-05_audio.mp4'],
+      conversationTitle: null,
+    }
+
+    render(<MessageBubble event={msg} />)
+    expect(screen.getByTitle('Play voice note')).toBeDefined()
+    expect(screen.queryByText('Voice note')).toBeNull()
+    expect(screen.queryByText('Audio Note')).toBeNull()
+  })
+
+  it('renders fallback Audio Note card when NOTE event has no attached file', () => {
+    const msg: MessageEvent = {
+      id: 'msg_no_file_note',
+      type: 'message',
+      timestamp: '2026-09-05T12:34:00.000Z',
+      contact: 'sarah',
+      direction: 'received',
+      mediaType: 'NOTE',
+      content: null,
+      isSaved: false,
+      mediaIds: 'audio_id',
+      chatMediaFiles: [],
+      conversationTitle: null,
+    }
+
+    render(<MessageBubble event={msg} />)
+    expect(screen.getByText('Audio Note')).toBeDefined()
   })
 })
 

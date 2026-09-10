@@ -380,9 +380,9 @@ export function ConversationPane({
                   }}
                   className="w-full flex items-start gap-2.5 px-2.5 py-2 text-left rounded-lg hover:bg-surface-raised transition cursor-pointer group text-text-primary"
                 >
-                  <FileText className="w-4 h-4 text-accent mt-0.5 shrink-0" />
+                  <FileText className="w-4 h-4 text-accent-text mt-0.5 shrink-0" />
                   <div>
-                    <div className="text-xs font-semibold text-text-primary group-hover:text-accent transition">
+                    <div className="text-xs font-semibold text-text-primary group-hover:text-accent-text transition">
                       Markdown for AI (.md)
                     </div>
                     <div className="text-[11px] text-text-secondary leading-tight mt-0.5">

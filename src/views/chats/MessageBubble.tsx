@@ -29,6 +29,15 @@ interface MessageBubbleProps {
   isHighlighted?: boolean
 }
 
+function formatTime(iso: string): string {
+  try {
+    const d = new Date(iso)
+    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  } catch {
+    return ''
+  }
+}
+
 function ChatMediaLightboxModal({
   files,
   initialIndex,
@@ -263,6 +272,11 @@ function ChatMediaGrid({
   )
 }
 
+const WAVEFORM_BARS = [
+  0.35, 0.55, 0.8, 0.45, 0.65, 0.95, 0.7, 0.4, 0.6, 0.85, 1.0, 0.75, 0.5, 0.7, 0.9, 0.6, 0.45, 0.8,
+  0.95, 0.7, 0.55, 0.4, 0.65, 0.8, 0.5, 0.35,
+]
+
 function ChatAudioPlayer({
   filePath,
   isSent = false,
@@ -300,7 +314,7 @@ function ChatAudioPlayer({
 
   return (
     <div
-      className={`flex items-center gap-3 p-3 rounded-2xl border transition shadow-2xs w-[260px] sm:w-[300px] max-w-full ${
+      className={`flex items-center gap-3 p-3 rounded-2xl border transition shadow-2xs w-[280px] sm:w-[360px] max-w-full ${
         isSent
           ? 'bg-surface-raised border-border text-text-primary'
           : 'bg-surface border-border text-text-primary'
@@ -338,45 +352,46 @@ function ChatAudioPlayer({
         />
       )}
 
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center justify-between gap-1">
-          <span className="text-xs font-bold">Audio Note</span>
-          {isSaved && (
-            <span className="inline-flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded font-semibold bg-accent/15 text-text-primary border border-accent/25">
-              <Bookmark className="w-2 h-2 fill-current" />
-              Saved
+      {/* Waveform visualization: vertically centered with play button, spanning remaining space */}
+      <div className="flex-1 flex items-center gap-1 sm:gap-1.5 h-10 px-0.5 min-w-0">
+        {WAVEFORM_BARS.map((height, idx) => {
+          const progress = duration > 0 ? currentTime / duration : 0
+          const barThreshold = (idx + 1) / WAVEFORM_BARS.length
+          const isActive = isPlaying && progress >= barThreshold - 0.05
+          return (
+            <span
+              key={idx}
+              className={`flex-1 max-w-[4px] min-w-[2px] rounded-full transition-all duration-150 ${
+                isActive
+                  ? 'scale-y-110 opacity-100 bg-accent-text dark:bg-accent'
+                  : 'opacity-40 bg-text-secondary'
+              }`}
+              style={{ height: `${Math.max(4, Math.round(height * 24))}px` }}
+            />
+          )
+        })}
+      </div>
+
+      {/* Saved label & time: vertical column with gap between top-right and bottom-right */}
+      <div className="self-stretch flex flex-col justify-between items-end shrink-0 min-h-[40px] pl-0.5">
+        {isSaved ? (
+          <span className="inline-flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded font-semibold bg-accent/15 text-accent-text border border-accent/25 shrink-0">
+            <Bookmark className="w-2 h-2 fill-current" />
+            Saved
+          </span>
+        ) : (
+          <div />
+        )}
+
+        <div className="flex items-center gap-1 shrink-0">
+          <span className="text-[10px] font-mono tabular-nums text-text-secondary">
+            {formatSec(currentTime > 0 ? currentTime : duration)}
+          </span>
+          {showTimestamp && timestamp && (
+            <span className="text-[10px] text-text-secondary font-sans opacity-70">
+              • {timestamp}
             </span>
           )}
-        </div>
-
-        {/* Waveform / playback scrub indicator */}
-        <div className="flex items-center justify-between gap-1.5 mt-1.5">
-          <div className="flex items-center gap-1 flex-1 opacity-80">
-            {[0.4, 0.7, 1.0, 0.5, 0.8, 0.6, 0.9, 0.6, 0.3].map((height, idx) => {
-              const progress = duration > 0 ? currentTime / duration : 0
-              const barThreshold = (idx + 1) / 9
-              const isActive = isPlaying && progress >= barThreshold - 0.1
-              return (
-                <span
-                  key={idx}
-                  className={`w-0.5 rounded-full transition-all duration-150 ${
-                    isActive ? 'scale-y-125 opacity-100 bg-accent' : 'opacity-40 bg-text-secondary'
-                  }`}
-                  style={{ height: `${Math.round(height * 16)}px` }}
-                />
-              )
-            })}
-          </div>
-          <div className="flex items-center gap-1 shrink-0">
-            <span className="text-[10px] font-mono tabular-nums text-text-secondary">
-              {formatSec(currentTime > 0 ? currentTime : duration)}
-            </span>
-            {showTimestamp && timestamp && (
-              <span className="text-[10px] text-text-secondary font-sans opacity-70">
-                • {timestamp}
-              </span>
-            )}
-          </div>
         </div>
       </div>
     </div>
@@ -560,7 +575,13 @@ function AudioNoteCard({ event, isSent }: { event: MessageEvent; isSent: boolean
   const hasFile = Boolean(event.chatMediaFiles && event.chatMediaFiles.length > 0)
   if (hasFile && event.chatMediaFiles?.[0]) {
     return (
-      <ChatAudioPlayer filePath={event.chatMediaFiles[0]} isSent={isSent} isSaved={event.isSaved} />
+      <ChatAudioPlayer
+        filePath={event.chatMediaFiles[0]}
+        isSent={isSent}
+        isSaved={event.isSaved}
+        timestamp={formatTime(event.timestamp)}
+        showTimestamp={true}
+      />
     )
   }
 
@@ -664,15 +685,6 @@ export function MessageBubble({
   const isSent = event.direction === 'sent'
   const isSnap = event.type === 'snap'
 
-  const formatTime = (iso: string) => {
-    try {
-      const d = new Date(iso)
-      return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    } catch {
-      return ''
-    }
-  }
-
   const message = event.type === 'message' ? event : null
   const hasMediaFiles = Boolean(message?.chatMediaFiles && message.chatMediaFiles.length > 0)
 
@@ -684,7 +696,13 @@ export function MessageBubble({
 
   const isAudioNote = hasMediaFiles && message?.mediaType === 'NOTE'
 
-  const hasCaption = Boolean(message?.content && message.content.trim())
+  const isRedundantVoiceNoteCaption =
+    message?.mediaType === 'NOTE' &&
+    Boolean(message?.content && /^(voice|audio)\s*(note|message)?$/i.test(message.content.trim()))
+
+  const hasCaption = Boolean(
+    message?.content && message.content.trim() && !isRedundantVoiceNoteCaption,
+  )
 
   const formattedTime = formatTime(event.timestamp)
   const isSingleVideo =
@@ -860,7 +878,7 @@ export function MessageBubble({
         )
       ) : isAudioNote ? (
         hasCaption ? (
-          <div className="flex flex-col gap-1.5 w-[260px] sm:w-[300px] max-w-[85vw]">
+          <div className="flex flex-col gap-1.5 w-[280px] sm:w-[360px] max-w-[85vw]">
             {/* Unwrapped voice note card on top */}
             <div className={`w-full rounded-2xl ${highlightClasses}`}>
               <ChatAudioPlayer
