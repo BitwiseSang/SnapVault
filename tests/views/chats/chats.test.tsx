@@ -306,7 +306,7 @@ describe('MessageBubble', () => {
     expect(screen.queryByText('Audio Note')).toBeNull()
   })
 
-  it('renders fallback Audio Note card when NOTE event has no attached file', () => {
+  it('renders fallback Audio Note card when NOTE event has no attached file without chat bubble wrapping', () => {
     const msg: MessageEvent = {
       id: 'msg_no_file_note',
       type: 'message',
@@ -321,8 +321,50 @@ describe('MessageBubble', () => {
       conversationTitle: null,
     }
 
-    render(<MessageBubble event={msg} />)
+    const { container } = render(<MessageBubble event={msg} />)
     expect(screen.getByText('Audio Note')).toBeDefined()
+    // Should NOT be wrapped in a standard chat bubble (no asymmetric speech bubble tail corners)
+    expect(container.querySelector('.rounded-bl-xs')).toBeNull()
+    expect(container.querySelector('.rounded-br-xs')).toBeNull()
+  })
+
+  it('renders Snap message as an unwrapped standalone card without double bubble wrapping', () => {
+    const snap: SnapEvent = {
+      id: 'snap_unwrapped',
+      type: 'snap',
+      timestamp: '2026-09-05T12:00:00.000Z',
+      contact: 'charlie',
+      direction: 'received',
+      mediaType: 'IMAGE',
+      conversationTitle: null,
+    }
+
+    const { container } = render(<MessageBubble event={snap} />)
+    expect(screen.getByText('Received Snap')).toBeDefined()
+    expect(screen.getByText('Photo')).toBeDefined()
+    // Standalone card without chat bubble tail corners
+    expect(container.querySelector('.rounded-bl-xs')).toBeNull()
+    expect(container.querySelector('.rounded-br-xs')).toBeNull()
+  })
+
+  it('renders Sticker message as an unwrapped standalone card', () => {
+    const msg: MessageEvent = {
+      id: 'msg_sticker',
+      type: 'message',
+      timestamp: '2026-09-05T12:00:00.000Z',
+      contact: 'sarah',
+      direction: 'sent',
+      mediaType: 'STICKER',
+      content: null,
+      isSaved: true,
+      mediaIds: '',
+      conversationTitle: null,
+    }
+
+    const { container } = render(<MessageBubble event={msg} />)
+    expect(screen.getByText('Sticker')).toBeDefined()
+    expect(container.querySelector('.rounded-bl-xs')).toBeNull()
+    expect(container.querySelector('.rounded-br-xs')).toBeNull()
   })
 })
 

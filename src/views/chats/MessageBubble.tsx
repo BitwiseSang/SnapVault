@@ -398,26 +398,34 @@ function ChatAudioPlayer({
   )
 }
 
-function SnapCard({ event, isSent }: { event: SnapEvent; isSent: boolean }) {
+function SnapCard({
+  event,
+  isSent,
+  timestamp = '',
+  highlightClasses = '',
+}: {
+  event: SnapEvent
+  isSent: boolean
+  timestamp?: string
+  highlightClasses?: string
+}) {
   const [showInfo, setShowInfo] = useState(false)
   const isVideo = event.mediaType === 'VIDEO'
 
   return (
-    <div className="space-y-1.5 min-w-[200px] sm:min-w-[230px]">
-      <div
-        className={`flex items-start gap-2.5 p-2.5 rounded-xl border transition ${
-          isSent
-            ? 'bg-black/8 border-black/15 text-accent-fg'
-            : 'bg-surface border-border text-text-primary'
-        }`}
-      >
+    <div
+      className={`space-y-1.5 min-w-[210px] sm:min-w-[250px] max-w-full p-3 rounded-2xl border transition shadow-2xs ${
+        isSent
+          ? 'bg-surface-raised border-border text-text-primary'
+          : 'bg-surface border-border text-text-primary'
+      } ${highlightClasses}`}
+    >
+      <div className="flex items-start gap-2.5">
         <div
-          className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 shadow-2xs ${
-            isSent
-              ? 'bg-black/12 text-accent-fg'
-              : isVideo
-                ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
-                : 'bg-red-500/10 text-red-400 border border-red-500/20'
+          className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-2xs ${
+            isVideo
+              ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
+              : 'bg-red-500/10 text-red-400 border border-red-500/20'
           }`}
         >
           {isVideo ? <Video className="w-4 h-4" /> : <Camera className="w-4 h-4" />}
@@ -427,39 +435,34 @@ function SnapCard({ event, isSent }: { event: SnapEvent; isSent: boolean }) {
           <div className="flex items-center justify-between gap-1">
             <div className="flex items-center gap-1.5">
               <span className="font-bold text-xs">{isSent ? 'Sent Snap' : 'Received Snap'}</span>
-              <span
-                className={`text-[9px] font-mono px-1 py-0.5 rounded font-semibold uppercase tracking-wider ${
-                  isSent
-                    ? 'bg-black/12'
-                    : 'bg-surface-raised border border-border text-text-secondary'
-                }`}
-              >
+              <span className="text-[9px] font-mono px-1 py-0.5 rounded font-semibold uppercase tracking-wider bg-surface-raised border border-border text-text-secondary">
                 {isVideo ? 'Video' : 'Photo'}
               </span>
             </div>
             <button
               onClick={() => setShowInfo((prev) => !prev)}
               title="Why isn't this playable?"
-              className="opacity-60 hover:opacity-100 cursor-pointer p-0.5 rounded transition"
+              className="opacity-60 hover:opacity-100 cursor-pointer p-0.5 rounded transition text-text-secondary"
             >
               <Info className="w-3.5 h-3.5" />
             </button>
           </div>
 
-          <p className="text-[10px] opacity-75 mt-0.5 leading-tight">
-            {isSent ? 'Delivered' : 'Opened'} • Ephemeral snap
-          </p>
+          <div className="flex items-center justify-between gap-2 mt-1.5">
+            <p className="text-[10px] opacity-75 text-text-secondary leading-tight">
+              {isSent ? 'Delivered' : 'Opened'} • Ephemeral snap
+            </p>
+            {timestamp && (
+              <span className="text-[10px] text-text-secondary opacity-70 shrink-0">
+                {timestamp}
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
       {showInfo && (
-        <div
-          className={`text-[10px] p-2 rounded-lg leading-relaxed ${
-            isSent
-              ? 'bg-black/12 text-accent-fg'
-              : 'bg-surface-raised text-text-secondary border border-border'
-          }`}
-        >
+        <div className="text-[10px] p-2 rounded-xl leading-relaxed bg-surface-raised text-text-secondary border border-border">
           Snapchat direct snaps are ephemeral and deleted after viewing. Media files are not
           included in data exports.
         </div>
@@ -571,7 +574,52 @@ function MediaCard({ event, isSent }: { event: MessageEvent; isSent: boolean }) 
   )
 }
 
-function AudioNoteCard({ event, isSent }: { event: MessageEvent; isSent: boolean }) {
+function StickerCard({
+  isSent,
+  isSaved = false,
+  timestamp = '',
+  highlightClasses = '',
+}: {
+  isSent: boolean
+  isSaved?: boolean
+  timestamp?: string
+  highlightClasses?: string
+}) {
+  return (
+    <div
+      className={`inline-flex items-center gap-2 px-3 py-2 rounded-2xl border transition shadow-2xs text-xs font-medium ${
+        isSent
+          ? 'bg-surface-raised border-border text-text-primary'
+          : 'bg-surface border-border text-text-primary'
+      } ${highlightClasses}`}
+    >
+      <div className="w-7 h-7 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center shrink-0 border border-amber-500/20">
+        <Smile className="w-4 h-4" />
+      </div>
+      <span className="font-bold text-xs">Sticker</span>
+      {isSaved && (
+        <span title="Saved in chat" className="inline-flex items-center">
+          <Bookmark className="w-2.5 h-2.5 fill-current text-accent-text shrink-0" />
+        </span>
+      )}
+      {timestamp && (
+        <span className="text-[10px] text-text-secondary opacity-70">• {timestamp}</span>
+      )}
+    </div>
+  )
+}
+
+function AudioNoteCard({
+  event,
+  isSent,
+  timestamp = '',
+  highlightClasses = '',
+}: {
+  event: MessageEvent
+  isSent: boolean
+  timestamp?: string
+  highlightClasses?: string
+}) {
   const hasFile = Boolean(event.chatMediaFiles && event.chatMediaFiles.length > 0)
   if (hasFile && event.chatMediaFiles?.[0]) {
     return (
@@ -579,7 +627,7 @@ function AudioNoteCard({ event, isSent }: { event: MessageEvent; isSent: boolean
         filePath={event.chatMediaFiles[0]}
         isSent={isSent}
         isSaved={event.isSaved}
-        timestamp={formatTime(event.timestamp)}
+        timestamp={timestamp || formatTime(event.timestamp)}
         showTimestamp={true}
       />
     )
@@ -587,19 +635,13 @@ function AudioNoteCard({ event, isSent }: { event: MessageEvent; isSent: boolean
 
   return (
     <div
-      className={`flex items-center gap-3 p-2.5 rounded-xl border transition min-w-[190px] ${
+      className={`flex items-center gap-3 p-3 rounded-2xl border transition shadow-2xs w-[260px] sm:w-[320px] max-w-full ${
         isSent
-          ? 'bg-black/8 border-black/15 text-accent-fg'
+          ? 'bg-surface-raised border-border text-text-primary'
           : 'bg-surface border-border text-text-primary'
-      }`}
+      } ${highlightClasses}`}
     >
-      <div
-        className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
-          isSent
-            ? 'bg-black/12 text-accent-fg'
-            : 'bg-surface-raised text-accent border border-border'
-        }`}
-      >
+      <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0 bg-surface-raised text-accent-text border border-border shadow-2xs">
         <Mic className="w-4 h-4" />
       </div>
 
@@ -607,28 +649,27 @@ function AudioNoteCard({ event, isSent }: { event: MessageEvent; isSent: boolean
         <div className="flex items-center justify-between gap-1">
           <span className="text-xs font-bold">Audio Note</span>
           {event.isSaved && (
-            <span
-              className={`inline-flex items-center gap-0.5 text-[9px] px-1 py-0.5 rounded font-semibold ${
-                isSent ? 'bg-black/12' : 'bg-accent/15 text-text-primary'
-              }`}
-            >
+            <span className="inline-flex items-center gap-0.5 text-[9px] px-1.5 py-0.5 rounded font-semibold bg-accent/15 text-accent-text border border-accent/25 shrink-0">
               <Bookmark className="w-2 h-2 fill-current" />
               Saved
             </span>
           )}
         </div>
 
-        {/* Waveform graphic */}
-        <div className="flex items-center gap-1 mt-1.5 opacity-60">
-          <span className="w-0.5 h-2 bg-current rounded-full" />
-          <span className="w-0.5 h-3.5 bg-current rounded-full" />
-          <span className="w-0.5 h-5 bg-current rounded-full" />
-          <span className="w-0.5 h-2.5 bg-current rounded-full" />
-          <span className="w-0.5 h-4 bg-current rounded-full" />
-          <span className="w-0.5 h-2 bg-current rounded-full" />
-          <span className="w-0.5 h-4.5 bg-current rounded-full" />
-          <span className="w-0.5 h-3.5 bg-current rounded-full" />
-          <span className="w-0.5 h-1.5 bg-current rounded-full" />
+        <div className="flex items-center justify-between gap-2 mt-1.5">
+          {/* Static waveform placeholder */}
+          <div className="flex items-center gap-1 opacity-50 flex-1">
+            {[0.4, 0.7, 1.0, 0.5, 0.8, 0.6, 0.9, 0.6, 0.3].map((h, i) => (
+              <span
+                key={i}
+                className="w-0.5 bg-current rounded-full"
+                style={{ height: `${Math.round(h * 14)}px` }}
+              />
+            ))}
+          </div>
+          {timestamp && (
+            <span className="text-[10px] text-text-secondary opacity-70 shrink-0">{timestamp}</span>
+          )}
         </div>
       </div>
     </div>
@@ -716,7 +757,7 @@ export function MessageBubble({
 
   const renderContent = () => {
     if (isSnap) {
-      return <SnapCard event={event} isSent={isSent} />
+      return <SnapCard event={event} isSent={isSent} timestamp={formattedTime} />
     }
 
     const msg = event
@@ -724,18 +765,9 @@ export function MessageBubble({
       case 'MEDIA':
         return <MediaCard event={msg} isSent={isSent} />
       case 'NOTE':
-        return <AudioNoteCard event={msg} isSent={isSent} />
+        return <AudioNoteCard event={msg} isSent={isSent} timestamp={formattedTime} />
       case 'STICKER':
-        return (
-          <div
-            className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border text-xs font-medium ${
-              isSent ? 'bg-black/8 border-black/15' : 'bg-surface border-border'
-            }`}
-          >
-            <Smile className="w-4 h-4 text-amber-500" />
-            <span>Sticker</span>
-          </div>
-        )
+        return <StickerCard isSent={isSent} isSaved={msg.isSaved} timestamp={formattedTime} />
       case 'LOCATION':
         return (
           <div
@@ -926,6 +958,27 @@ export function MessageBubble({
             />
           </div>
         )
+      ) : isSnap ? (
+        <SnapCard
+          event={event}
+          isSent={isSent}
+          timestamp={formattedTime}
+          highlightClasses={highlightClasses}
+        />
+      ) : message?.mediaType === 'STICKER' ? (
+        <StickerCard
+          isSent={isSent}
+          isSaved={message.isSaved}
+          timestamp={formattedTime}
+          highlightClasses={highlightClasses}
+        />
+      ) : message?.mediaType === 'NOTE' ? (
+        <AudioNoteCard
+          event={message}
+          isSent={isSent}
+          timestamp={formattedTime}
+          highlightClasses={highlightClasses}
+        />
       ) : (
         /* Standard wrapped chat bubble */
         <div
