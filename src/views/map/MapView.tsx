@@ -518,17 +518,20 @@ export function MapView() {
       {/* Top Controls Bar */}
       <div className="h-14 border-b border-border bg-surface/90 backdrop-blur-md px-4 flex items-center justify-between gap-3 shrink-0 z-10 select-none">
         {/* Left: Title and counter badge */}
-        <div className="flex items-center gap-2.5 min-w-0">
-          <div className="w-8 h-8 rounded-xl bg-accent text-accent-fg flex items-center justify-center shadow-xs shrink-0">
+        <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+          <div className="hidden sm:flex w-8 h-8 rounded-xl bg-accent text-accent-fg items-center justify-center shadow-xs shrink-0">
             <MapPin className="w-4 h-4" />
           </div>
           <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <h1 className="text-sm sm:text-base font-bold tracking-tight text-text-primary truncate">
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              <h1 className="text-sm sm:text-base font-bold tracking-tight text-text-primary shrink-0">
                 Snap Map
               </h1>
-              <Badge variant="secondary" size="sm">
-                {filteredMemories.length} {filteredMemories.length === 1 ? 'memory' : 'memories'}
+              <Badge variant="secondary" size="sm" className="shrink-0 whitespace-nowrap">
+                <span className="sm:hidden">{filteredMemories.length}</span>
+                <span className="hidden sm:inline">
+                  {filteredMemories.length} {filteredMemories.length === 1 ? 'memory' : 'memories'}
+                </span>
               </Badge>
             </div>
           </div>
@@ -577,7 +580,7 @@ export function MapView() {
             <select
               value={selectedYear}
               onChange={(e) => setSelectedYear(e.target.value)}
-              className="text-xs bg-surface-raised border border-border text-text-primary px-2.5 py-1.5 rounded-xl focus:outline-none focus:border-accent cursor-pointer"
+              className="text-xs bg-surface-raised border border-border text-text-primary px-2 py-1 sm:px-2.5 sm:py-1.5 rounded-xl focus:outline-none focus:border-accent cursor-pointer max-w-[80px] sm:max-w-none truncate"
             >
               <option value="ALL">All Years</option>
               {availableYears.map((yr) => (
@@ -598,6 +601,7 @@ export function MapView() {
             label={`Switch to ${activeTileMode === 'dark' ? 'light' : 'dark'} map style`}
             size="sm"
             variant="secondary"
+            className="hidden sm:inline-flex"
             onClick={() => setTileModeOverride(activeTileMode === 'dark' ? 'light' : 'dark')}
           >
             <Layers className="w-3.5 h-3.5" />

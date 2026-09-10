@@ -659,4 +659,43 @@ describe('ConversationPane component', () => {
     const exportBtn = screen.getByLabelText('Export conversation')
     expect(exportBtn.hasAttribute('disabled')).toBe(true)
   })
+
+  it('filters by category when mobile select dropdown changes', () => {
+    render(
+      <MemoryRouter>
+        <ConversationPane contact="alice" events={mockEvents} isLoading={false} />
+      </MemoryRouter>,
+    )
+    const select = screen.getByRole('combobox', { name: /filter messages/i })
+    expect(select).toBeDefined()
+
+    // Change to SAVED
+    fireEvent.change(select, { target: { value: 'SAVED' } })
+    expect(screen.queryByText('Hello Alice 1')).toBeNull()
+    expect(screen.getByText('Hello Alice 2')).toBeDefined()
+  })
+
+  it('omits redundant handle when displayName matches username', () => {
+    const summary: ContactSummary = {
+      contact: 'alice',
+      displayName: 'alice',
+      totalMessages: 2,
+      totalSnaps: 0,
+      totalTexts: 2,
+      totalMedia: 0,
+      totalSaved: 1,
+      lastActivity: '2026-09-01T10:05:00.000Z',
+      isGroup: false,
+    }
+
+    render(
+      <MemoryRouter>
+        <ConversationPane contact="alice" summary={summary} events={mockEvents} isLoading={false} />
+      </MemoryRouter>,
+    )
+
+    // Only one instance of alice should appear (the title)
+    expect(screen.getAllByText('alice').length).toBe(1)
+    expect(screen.queryByText('@alice')).toBeNull()
+  })
 })

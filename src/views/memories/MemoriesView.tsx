@@ -164,7 +164,7 @@ export function MemoriesView() {
           <select
             value={selectedYear}
             onChange={(e) => setSelectedYear(e.target.value)}
-            className="text-xs bg-surface-raised border border-border text-text-primary px-3 py-1.5 rounded-xl focus:outline-none focus:border-accent cursor-pointer"
+            className="h-9 text-xs bg-surface-raised border border-border text-text-primary px-3 rounded-lg focus:outline-none focus:border-accent cursor-pointer"
           >
             <option value="ALL">All Years</option>
             {availableYears.map((yr) => (

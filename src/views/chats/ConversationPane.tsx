@@ -13,6 +13,7 @@ import {
   Printer,
   Code,
   FileText,
+  ChevronDown,
 } from 'lucide-react'
 import { ContactSummary, TimelineEvent } from '../../db/db'
 import { Avatar } from '../../components/Avatar'
@@ -318,9 +319,9 @@ export function ConversationPane({
             <Avatar name={summary?.displayName ?? contact} isGroup={summary?.isGroup} size="lg" />
           )}
 
-          <div className="min-w-0">
+          <div className="flex flex-col justify-center min-w-0">
             <div className="flex items-center gap-2">
-              <h2 className="text-base font-bold text-text-primary truncate">
+              <h2 className="text-sm sm:text-base font-bold text-text-primary truncate">
                 {isAllStream ? 'All Conversations' : (summary?.displayName ?? contact)}
               </h2>
               {summary?.isGroup && (
@@ -330,15 +331,16 @@ export function ConversationPane({
               )}
             </div>
 
-            <div className="flex items-center gap-2 text-xs text-text-secondary">
-              {!isAllStream && <span>@{contact}</span>}
-              {!isAllStream && <span>•</span>}
-              <span>{events.length.toLocaleString()} events</span>
-              {dateRangeString() && (
+            <div className="flex items-center gap-1.5 text-xs text-text-secondary truncate mt-0.5">
+              {!isAllStream && summary?.displayName && summary.displayName !== contact && (
                 <>
+                  <span className="truncate">@{contact}</span>
                   <span>•</span>
-                  <span>{dateRangeString()}</span>
                 </>
+              )}
+              <span className="shrink-0">{events.length.toLocaleString()} events</span>
+              {dateRangeString() && (
+                <span className="hidden sm:inline shrink-0">• {dateRangeString()}</span>
               )}
             </div>
           </div>
@@ -445,7 +447,8 @@ export function ConversationPane({
       </div>
 
       {/* Filter Bar */}
-      <div className="px-6 py-2 border-b border-border bg-surface/50 flex items-center gap-1.5 overflow-x-auto shrink-0 text-xs">
+      {/* Desktop Filter Pills */}
+      <div className="hidden md:flex px-6 py-2 border-b border-border bg-surface/50 items-center gap-1.5 overflow-x-auto shrink-0 text-xs">
         <button
           onClick={() => setFilter('ALL')}
           className={`px-2.5 py-1 rounded-lg font-medium transition cursor-pointer ${
@@ -500,6 +503,32 @@ export function ConversationPane({
           <Sparkles className="w-3 h-3" />
           Snaps
         </button>
+      </div>
+
+      {/* Mobile Filter Dropdown */}
+      <div className="md:hidden px-4 py-2 border-b border-border bg-surface/50 flex items-center justify-between gap-2 shrink-0">
+        <label
+          htmlFor="mobile-chat-filter"
+          className="text-xs font-medium text-text-secondary shrink-0"
+        >
+          Filter:
+        </label>
+        <div className="relative flex-1">
+          <select
+            id="mobile-chat-filter"
+            aria-label="Filter messages"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value as FilterCategory)}
+            className="w-full h-8 px-2.5 pr-8 rounded-lg text-xs bg-surface-raised border border-border text-text-primary focus:outline-none focus:border-accent appearance-none cursor-pointer"
+          >
+            <option value="ALL">All ({events.length})</option>
+            <option value="TEXT">Text Messages</option>
+            <option value="MEDIA">Media</option>
+            <option value="SAVED">Saved</option>
+            <option value="SNAPS">Snaps</option>
+          </select>
+          <ChevronDown className="w-3.5 h-3.5 text-text-secondary absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+        </div>
       </div>
 
       {/* Message Feed */}

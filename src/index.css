@@ -10,6 +10,7 @@
   --color-text-secondary: var(--color-text-secondary);
   --color-accent: var(--color-accent);
   --color-accent-fg: var(--color-accent-fg);
+  --color-accent-text: var(--color-accent-text);
   --color-sent: var(--color-sent);
   --color-received: var(--color-received);
 }
@@ -23,6 +24,7 @@
   --color-text-secondary: #71717a;
   --color-accent: #fffc00;
   --color-accent-fg: #09090b;
+  --color-accent-text: #b45309;
   --color-sent: #fffc00;
   --color-received: #e4e4e7;
 }
@@ -36,6 +38,7 @@
   --color-text-secondary: #a1a1aa;
   --color-accent: #fffc00;
   --color-accent-fg: #09090b;
+  --color-accent-text: #fffc00;
   --color-sent: #fffc00;
   --color-received: #2e2e2e;
 }

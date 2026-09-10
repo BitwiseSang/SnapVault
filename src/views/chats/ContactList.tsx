@@ -158,31 +158,31 @@ function renderContactBadge(item: ContactSummary, field: ContactSortField) {
   switch (field) {
     case 'texts':
       return (
-        <span className="px-1.5 py-0.5 rounded bg-accent/15 text-accent font-semibold">
+        <span className="px-1.5 py-0.5 rounded bg-accent/15 text-accent-text font-semibold">
           {(item.totalTexts ?? 0).toLocaleString()} texts
         </span>
       )
     case 'media':
       return (
-        <span className="px-1.5 py-0.5 rounded bg-accent/15 text-accent font-semibold">
+        <span className="px-1.5 py-0.5 rounded bg-accent/15 text-accent-text font-semibold">
           {(item.totalMedia ?? 0).toLocaleString()} media
         </span>
       )
     case 'snaps':
       return (
-        <span className="px-1.5 py-0.5 rounded bg-accent/15 text-accent font-semibold">
+        <span className="px-1.5 py-0.5 rounded bg-accent/15 text-accent-text font-semibold">
           {(item.totalSnaps ?? 0).toLocaleString()} snaps
         </span>
       )
     case 'saved':
       return (
-        <span className="px-1.5 py-0.5 rounded bg-accent/15 text-accent font-semibold">
+        <span className="px-1.5 py-0.5 rounded bg-accent/15 text-accent-text font-semibold">
           {(item.totalSaved ?? 0).toLocaleString()} saved
         </span>
       )
     case 'total':
       return (
-        <span className="px-1.5 py-0.5 rounded bg-accent/15 text-accent font-semibold">
+        <span className="px-1.5 py-0.5 rounded bg-accent/15 text-accent-text font-semibold">
           {(item.totalMessages + item.totalSnaps).toLocaleString()} total
         </span>
       )
@@ -323,7 +323,7 @@ export function ContactList({
               title={`Sort by: ${activeSortOption.label} (${getDirectionLabel(sortField, sortDirection)})`}
               className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium bg-surface-raised hover:bg-surface-raised/80 border border-border text-text-primary transition cursor-pointer shadow-2xs"
             >
-              <ActiveIcon className="w-3.5 h-3.5 text-accent shrink-0" />
+              <ActiveIcon className="w-3.5 h-3.5 text-accent-text shrink-0" />
               <span className="font-semibold">{activeSortOption.shortLabel}</span>
               <ChevronDown
                 className={`w-3 h-3 text-text-secondary transition-transform duration-150 ${
@@ -337,7 +337,7 @@ export function ContactList({
               onClick={toggleDirection}
               title={`Currently: ${getDirectionLabel(sortField, sortDirection)}. Click to invert.`}
               aria-label={`Invert sort direction, currently ${getDirectionLabel(sortField, sortDirection)}`}
-              className="flex items-center justify-center w-7 h-7 rounded-lg bg-surface-raised hover:bg-surface-raised/80 border border-border text-accent transition cursor-pointer shadow-2xs"
+              className="flex items-center justify-center w-7 h-7 rounded-lg bg-surface-raised hover:bg-surface-raised/80 border border-border text-accent-text transition cursor-pointer shadow-2xs"
             >
               {sortField === 'name' ? (
                 sortDirection === 'asc' ? (
@@ -360,7 +360,7 @@ export function ContactList({
               >
                 <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-text-secondary border-b border-border/40 mb-1 flex items-center justify-between">
                   <span>Sort conversations by</span>
-                  <span className="text-accent font-mono text-[9px] font-normal lowercase">
+                  <span className="text-accent-text font-mono text-[9px] font-normal lowercase">
                     {getDirectionLabel(sortField, sortDirection)}
                   </span>
                 </div>
@@ -374,23 +374,23 @@ export function ContactList({
                       onClick={() => handleSelectField(opt.id)}
                       className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded-lg text-xs transition cursor-pointer text-left ${
                         isSelected
-                          ? 'bg-accent/10 text-accent font-semibold'
+                          ? 'bg-accent/10 text-accent-text font-semibold'
                           : 'text-text-primary hover:bg-surface-raised'
                       }`}
                     >
                       <div className="flex items-center gap-2 min-w-0">
                         <Icon
                           className={`w-3.5 h-3.5 shrink-0 ${
-                            isSelected ? 'text-accent' : 'text-text-secondary'
+                            isSelected ? 'text-accent-text' : 'text-text-secondary'
                           }`}
                         />
                         <span className="truncate">{opt.label}</span>
                       </div>
 
                       {isSelected && (
-                        <div className="flex items-center gap-1.5 text-[10px] font-mono text-accent shrink-0 ml-2">
+                        <div className="flex items-center gap-1.5 text-[10px] font-mono text-accent-text shrink-0 ml-2">
                           <span>{getDirectionLabel(opt.id, sortDirection)}</span>
-                          <Check className="w-3.5 h-3.5 text-accent shrink-0" />
+                          <Check className="w-3.5 h-3.5 text-accent-text shrink-0" />
                         </div>
                       )}
                     </button>
@@ -429,7 +429,7 @@ export function ContactList({
             <p>No conversations found</p>
             <button
               onClick={() => setFilterQuery('')}
-              className="text-accent underline cursor-pointer hover:opacity-80"
+              className="text-accent-text underline cursor-pointer hover:opacity-80"
             >
               Clear filter
             </button>

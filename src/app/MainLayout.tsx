@@ -233,7 +233,9 @@ export function MainLayout() {
               to={item.to}
               className={({ isActive }) =>
                 `flex flex-col items-center justify-center gap-0.5 py-1 px-4 rounded-xl text-[10px] font-medium transition ${
-                  isActive ? 'text-accent font-bold' : 'text-text-secondary hover:text-text-primary'
+                  isActive
+                    ? 'text-accent-text font-bold'
+                    : 'text-text-secondary hover:text-text-primary'
                 }`
               }
             >
